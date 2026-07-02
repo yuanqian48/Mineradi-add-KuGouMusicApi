@@ -16997,7 +16997,7 @@ function isSongLiked(song) {
   return !!(song && song.id && likedSongMap[String(song.id)]);
 }
 function ensureLoggedInForAction() {
-  if (loginStatus.loggedIn) return true;
+  if (loginStatus.loggedIn || kgLoginStatus.loggedIn || qqLoginStatus.loggedIn) return true;
   showToast('请先登录');
   showLoginModal();
   return false;
