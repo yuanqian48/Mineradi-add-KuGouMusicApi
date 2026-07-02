@@ -15636,13 +15636,14 @@ function renderHomeDiscover() {
   if (continueSub) continueSub.textContent = summary.recent ? (summary.recent.artist || summary.recent.source || '最近播放') : '最近播放会出现在这里';
   if (profileTitle) profileTitle.textContent = summary.topArtist ? summary.topArtist.name : (summary.topSong ? summary.topSong.name : '听歌画像');
   if (profileSub) profileSub.textContent = summary.topArtist ? ('常听歌手 · ' + summary.topArtist.plays + ' 次') : (summary.totalPlays ? summary.totalPlays + ' 次有效播放' : '播放几首后生成偏好');
+  var hasKG = kgLoginStatus && kgLoginStatus.loggedIn;
   if (loggedOutHome) {
-    if (dailyTitle) dailyTitle.textContent = '每日推荐';
-    if (dailySub) dailySub.textContent = '登录后同步你的今日歌曲';
-    if (privateTitle) privateTitle.textContent = '推荐歌曲';
-    if (privateSub) privateSub.textContent = '登录后同步更多歌曲';
-    if (libTitle) libTitle.textContent = '更多歌曲';
-    if (libSub) libSub.textContent = '播放后会继续补全推荐';
+    if (dailyTitle) dailyTitle.textContent = hasKG ? '热歌榜单' : '每日推荐';
+    if (dailySub) dailySub.textContent = hasKG ? '点击播放完整热歌榜单' : '登录后同步你的今日歌曲';
+    if (privateTitle) privateTitle.textContent = hasKG ? '私人FM' : '推荐歌曲';
+    if (privateSub) privateSub.textContent = hasKG ? '猜你喜欢 · 点击开始' : '登录后同步更多歌曲';
+    if (libTitle) libTitle.textContent = hasKG ? '新歌速递' : '更多歌曲';
+    if (libSub) libSub.textContent = hasKG ? '最新发布的热门歌曲' : '播放后会继续补全推荐';
     setHomeArt('home-weather-art', '', 280);
     setHomeArt('home-daily-art', '', 280);
     setHomeArt('home-private-art', '', 280);
@@ -15650,12 +15651,12 @@ function renderHomeDiscover() {
     setHomeArt('home-profile-art', summary.topSong && summary.topSong.cover || summary.recent && summary.recent.cover, 280);
     setHomeArt('home-library-art', '', 280);
   } else {
-    if (dailyTitle) dailyTitle.textContent = daily ? daily.name : '每日推荐';
-    if (dailySub) dailySub.textContent = daily ? ((daily.artist || songSourceLabel(daily) || '今日歌曲') + ' · 点击播放今日队列') : '同步你的今日歌曲';
-    if (privateTitle) privateTitle.textContent = cardSongB ? cardSongB.name : '私人雷达';
-    if (privateSub) privateSub.textContent = cardSongB ? (cardSongB.artist || songSourceLabel(cardSongB) || '推荐歌曲') : (homeDiscoverState.songs.length + ' 首 · 根据今日推荐与常听偏好');
-    if (libTitle) libTitle.textContent = cardSongC ? cardSongC.name : (summary.topArtist ? summary.topArtist.name : '更多歌曲');
-    if (libSub) libSub.textContent = cardSongC ? (cardSongC.artist || songSourceLabel(cardSongC) || '推荐歌曲') : (summary.topArtist ? ('歌手偏好 · ' + summary.topArtist.plays + ' 次') : '播放几首后生成你的偏好');
+    if (dailyTitle) dailyTitle.textContent = hasKG ? (daily ? daily.name : '热歌榜单') : (daily ? daily.name : '每日推荐');
+    if (dailySub) dailySub.textContent = hasKG ? (daily ? ((daily.artist || '热歌') + ' · 点击播放热歌榜单') : '点击播放完整热歌榜单') : (daily ? ((daily.artist || songSourceLabel(daily) || '今日歌曲') + ' · 点击播放今日队列') : '同步你的今日歌曲');
+    if (privateTitle) privateTitle.textContent = hasKG ? (cardSongB ? cardSongB.name : '私人FM') : (cardSongB ? cardSongB.name : '私人雷达');
+    if (privateSub) privateSub.textContent = hasKG ? (cardSongB ? (cardSongB.artist || '推荐') + ' · 猜你喜欢' : '猜你喜欢 · 点击开始') : (cardSongB ? (cardSongB.artist || songSourceLabel(cardSongB) || '推荐歌曲') : (homeDiscoverState.songs.length + ' 首 · 根据今日推荐与常听偏好'));
+    if (libTitle) libTitle.textContent = hasKG ? (cardSongC ? cardSongC.name : '新歌速递') : (cardSongC ? cardSongC.name : (summary.topArtist ? summary.topArtist.name : '更多歌曲'));
+    if (libSub) libSub.textContent = hasKG ? (cardSongC ? (cardSongC.artist || '新歌') + ' · 新歌速递' : '最新发布的热门歌曲') : (cardSongC ? (cardSongC.artist || songSourceLabel(cardSongC) || '推荐歌曲') : (summary.topArtist ? ('歌手偏好 · ' + summary.topArtist.plays + ' 次') : '播放几首后生成你的偏好'));
     setHomeArt('home-weather-art', (userPlaylists[0] && userPlaylists[0].cover) || (playlistItem && playlistItem.cover) || daily && daily.cover, 280);
     setHomeArt('home-daily-art', daily && daily.cover, 280);
     setHomeArt('home-private-art', cardSongB && cardSongB.cover || daily && daily.cover || summary.recent && summary.recent.cover || playlistItem && playlistItem.cover, 280);
@@ -16099,10 +16100,12 @@ function playHomeSong(index) {
   homeForcedOpen = false;
   homeSuppressed = false;
   setHomeControlsLocked(false);
+  var hasKG = kgLoginStatus && kgLoginStatus.loggedIn;
   var song = homeDiscoverState.songs[index];
   if (!song) {
-    if (index > 0) playHomePrivateRadio();
-    else playHomeDaily();
+    if (index === 0) { if (hasKG) playHomeDaily(); else playHomeDailyLegacy(); }
+    else if (index === 1) { if (hasKG) playHomePrivateRadio(); else playHomePrivateRadioLegacy(); }
+    else { if (hasKG) openHomeThirdCard(); else openHomeThirdCardLegacy(); }
     return;
   }
   playQueue = homeDiscoverState.songs.map(cloneSong);
@@ -16160,6 +16163,35 @@ async function openHomeThirdCard() {
     forcePlaybackControlsInteractive();
     playQueueAt(0).catch(function(e){ console.warn('[HomeNewSongs]', e); });
   } catch(e) { console.warn('[HomeNewSongs]', e); runHomeSearch('新歌'); }
+}
+// 未登录酷狗时的旧版 fallback
+async function playHomeDailyLegacy() {
+  homeForcedOpen = false; homeSuppressed = false; setHomeControlsLocked(false);
+  if (!hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) { showLoginModal({ source: 'home-daily' }); return; }
+  await waitForHomeDiscoverIdle();
+  if (!homeDiscoverState.loaded || (!homeDiscoverState.songs.length && !homeDiscoverState.loading)) await loadHomeDiscover(true);
+  if (!homeDiscoverState.songs.length) { runHomeSearch('每日推荐'); return; }
+  playQueue = homeDiscoverState.songs.map(cloneSong); currentIdx = 0;
+  safeRenderQueuePanel('home-daily'); safeShelfRebuild('home-daily', true); forcePlaybackControlsInteractive();
+  playQueueAt(0).catch(function(e){ console.warn('[HomeDaily]', e); });
+}
+async function playHomePrivateRadioLegacy() {
+  homeForcedOpen = false; homeSuppressed = false; setHomeControlsLocked(false);
+  if (!hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) { showLoginModal({ source: 'home-private' }); return; }
+  await waitForHomeDiscoverIdle();
+  if (!homeDiscoverState.loaded || ((!homeDiscoverState.playlists.length && !homeDiscoverState.songs.length) && !homeDiscoverState.loading)) await loadHomeDiscover(true);
+  if (homeDiscoverState.songs.length) {
+    playQueue = homeDiscoverState.songs.map(cloneSong); currentIdx = 0;
+    safeRenderQueuePanel('home-private-radio'); safeShelfRebuild('home-private-radio', true); forcePlaybackControlsInteractive();
+    playQueueAt(0).catch(function(e){ console.warn('[HomePrivate]', e); }); return;
+  }
+  var item = homeDiscoverState.playlists[0];
+  if (item && item.id) { await loadPlaylistIntoQueueById(item.id, true, item.name || '私人雷达'); return; }
+  openHomeLibrary();
+}
+function openHomeThirdCardLegacy() {
+  if (!hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) { openHomeLocalImport(); return; }
+  openHomePodcast(0);
 }
 function openHomeLibrary() {
   if (!hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) {
