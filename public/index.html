@@ -17161,7 +17161,8 @@ function renderCollectModal() {
   var cover = songCoverSrc(song, 80);
   current.innerHTML = (cover ? '<img src="' + cover + '" alt="">' : '<div class="cover-placeholder"></div>') +
     '<div style="min-width:0"><div class="collect-title">' + escHtml(song.name || '当前歌曲') + '</div><div class="collect-sub">' + escHtml(song.artist || '') + '</div></div>';
-  if (!loginStatus.loggedIn) {
+  var hasAnyLogin = loginStatus.loggedIn || kgLoginStatus.loggedIn || qqLoginStatus.loggedIn;
+  if (!hasAnyLogin) {
     list.innerHTML = '<div class="collect-empty">登录后显示你的歌单</div>';
     return;
   }
