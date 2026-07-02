@@ -1464,7 +1464,7 @@ ipcMain.handle('kugou-playlist-detail', async (_event, ids) => {
 
 ipcMain.handle('kugou-playlist-tracks', async (_event, id, page, pagesize, listid) => {
   if (!id && !listid) return { provider: 'kugou', tracks: [] };
-  const pg = Math.max(1, parseInt(page || '1', 10) || 1); const sz = Math.max(10, Math.min(500, parseInt(pagesize || '200', 10) || 60));
+  const pg = Math.max(1, parseInt(page || '1', 10) || 1); const sz = Math.max(10, Math.min(1000, parseInt(pagesize || '1000', 10) || 60));
   const obj = kgCookieObj();
   // 用户自己歌单用 listid
   const useListid = listid || (/^\d+$/.test(String(id || '')) ? id : '');
@@ -1487,7 +1487,7 @@ ipcMain.handle('kugou-playlist-tracks', async (_event, id, page, pagesize, listi
 ipcMain.handle('kugou-playlist-track-all', async (_event, id, page, pagesize) => {
   if (!id) return { provider: 'kugou', tracks: [] };
   const pg = Math.max(1, parseInt(page || '1', 10) || 1);
-  const sz = Math.max(10, Math.min(500, parseInt(pagesize || '200', 10) || 30));
+  const sz = Math.max(10, Math.min(1000, parseInt(pagesize || '1000', 10) || 30));
   const r = await safeKGRequest({
     url: '/pubsongs/v2/get_other_list_file_nofilt', method: 'GET',
     params: { global_collection_id: id, page: pg, pagesize: sz, area_code: 1, plat: 1, type: 1, mode: 1, personal_switch: 1, begin_idx: (pg - 1) * sz, extend_fields: 'abtags,hot_cmt,popularization' },
@@ -1501,7 +1501,7 @@ ipcMain.handle('kugou-playlist-track-all', async (_event, id, page, pagesize) =>
 ipcMain.handle('kugou-playlist-track-all-new', async (_event, listid, page, pagesize) => {
   if (!listid) return { provider: 'kugou', tracks: [] };
   const pg = Math.max(1, parseInt(page || '1', 10) || 1);
-  const sz = Math.max(10, Math.min(500, parseInt(pagesize || '200', 10) || 30));
+  const sz = Math.max(10, Math.min(1000, parseInt(pagesize || '1000', 10) || 30));
   const obj = kgCookieObj();
   const r = await safeKGRequest({
     url: '/v4/get_list_all_file', method: 'POST',

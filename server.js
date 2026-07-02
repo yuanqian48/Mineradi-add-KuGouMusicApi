@@ -4473,7 +4473,7 @@ const server = http.createServer(async (req, res) => {
       const listid = url.searchParams.get('listid') || '';
       if (!id && !listid) { sendJSON(res, { provider: 'kugou', error: 'Missing playlist id', tracks: [] }, 400); return; }
       const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1);
-      const pagesize = Math.max(10, Math.min(1000, parseInt(url.searchParams.get('pagesize') || '500', 10) || 500));
+      const pagesize = Math.max(10, Math.min(1000, parseInt(url.searchParams.get('pagesize') || '1000', 10) || 1000));
       const cookieObj = kgCookieObj();
       const userid = Number(cookieObj.userid || kgLoginInfo.userId || 0);
       const token = cookieObj.token || '';
@@ -4523,7 +4523,7 @@ const server = http.createServer(async (req, res) => {
       const id = url.searchParams.get('id') || '';
       if (!id) { sendJSON(res, { provider: 'kugou', error: 'Missing id', tracks: [] }, 400); return; }
       const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1);
-      const pagesize = Math.max(10, Math.min(500, parseInt(url.searchParams.get('pagesize') || '200', 10) || 30));
+      const pagesize = Math.max(10, Math.min(1000, parseInt(url.searchParams.get('pagesize') || '1000', 10) || 30));
       const r = await kugouRequest({
         url: '/pubsongs/v2/get_other_list_file_nofilt', method: 'GET',
         params: {
@@ -4550,7 +4550,7 @@ const server = http.createServer(async (req, res) => {
       const listid = url.searchParams.get('listid') || '';
       if (!listid) { sendJSON(res, { provider: 'kugou', error: 'Missing listid', tracks: [] }, 400); return; }
       const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1);
-      const pagesize = Math.max(10, Math.min(500, parseInt(url.searchParams.get('pagesize') || '200', 10) || 30));
+      const pagesize = Math.max(10, Math.min(1000, parseInt(url.searchParams.get('pagesize') || '1000', 10) || 30));
       const cookieObj = kgCookieObj();
       const userid = Number(cookieObj.userid || kgLoginInfo.userId || 0);
       const token = cookieObj.token || '';
