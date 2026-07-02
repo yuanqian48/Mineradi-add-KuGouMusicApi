@@ -19814,11 +19814,15 @@ function renderUserPlaylistsList(opts) {
       '<div style="flex:1;min-width:0"><div class="pl-name">' + escHtml(pl.name) + '<span class="tag-source ' + provider + '" style="margin-left:6px;vertical-align:1px">' + providerLabel + '</span></div><div class="pl-sub">' + pl.trackCount + ' 首 · ' + escHtml(pl.creator || '') + '</div></div>' +
     '</div>' + playlistPanelDetailHtml(pl, provider);
   }
-  var groups = [
-    { key:'kugou', label:'酷狗歌单', items:userPlaylists.filter(function(pl){ return pl.provider === 'kugou'; }) },
-    { key:'netease', label:'网易云歌单', items:userPlaylists.filter(function(pl){ return pl.provider !== 'qq' && pl.provider !== 'kugou'; }) },
-    { key:'qq', label:'QQ 音乐歌单', items:userPlaylists.filter(function(pl){ return pl.provider === 'qq'; }) }
+  var allGroups = [
+    { key:'kugou', label:'酷狗歌单', items:userPlaylists.filter(function(pl){ return pl.provider === 'kugou'; }), loggedIn: kgLoginStatus.loggedIn },
+    { key:'netease', label:'网易云歌单', items:userPlaylists.filter(function(pl){ return pl.provider !== 'qq' && pl.provider !== 'kugou'; }), loggedIn: loginStatus.loggedIn },
+    { key:'qq', label:'QQ 音乐歌单', items:userPlaylists.filter(function(pl){ return pl.provider === 'qq'; }), loggedIn: qqLoginStatus.loggedIn }
   ];
+  // 只显示已登录且有歌单的平台分组
+  var groups = allGroups.filter(function(g){ return g.loggedIn && g.items.length; });
+  // 如果没有已登录平台的分组，至少展示有歌单的分组
+  if (!groups.length) groups = allGroups.filter(function(g){ return g.items.length; });
   if (opts.reset) resetPlaylistPanelRenderLimit();
   playlistPanelRenderLimit = Math.max(PLAYLIST_PANEL_BATCH_SIZE, Math.min(userPlaylists.length, playlistPanelRenderLimit || PLAYLIST_PANEL_BATCH_SIZE));
   var renderedCount = 0;
