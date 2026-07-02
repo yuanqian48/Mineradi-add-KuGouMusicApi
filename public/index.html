@@ -19665,9 +19665,33 @@ async function openPlaylistPanelDetail(provider, pid, title) {
     showToast('歌单详情加载失败');
   }
 }
-function playPlaylistPanelDetail() {
+async function playPlaylistPanelDetail() {
   var st = playlistPanelDetailState;
   if (!st || !st.key) return;
+  // 等待加载完成
+  if (st.loading) {
+    showLoading();
+    var waitToken = st.token;
+    var waited = 0;
+    while (playlistPanelDetailState.key === st.key && playlistPanelDetailState.loading && waited < 8000) {
+      await new Promise(function(r){ setTimeout(r, 150); });
+      waited += 150;
+    }
+    hideLoading();
+    if (playlistPanelDetailState.token !== waitToken) return;
+    st = playlistPanelDetailState;
+  }
+  // 如果已有缓存的歌曲，直接播放
+  if (st.tracks && st.tracks.length) {
+    playQueue = st.tracks.map(cloneSong);
+    currentIdx = 0;
+    safeRenderQueuePanel('playlist-load');
+    safeSwitchPlaylistTab('queue', 'playlist-load');
+    safeShelfRebuild('playlist-load', true);
+    forcePlaybackControlsInteractive();
+    playQueueAt(0).catch(function(e){ console.warn('[PlaylistPanelPlay]', e); });
+    return;
+  }
   var parts = st.key.split(':');
   var provider = (parts[0] === 'qq' || parts[0] === 'kg') ? parts[0] : 'netease';
   var pid = parts.slice(1).join(':');
