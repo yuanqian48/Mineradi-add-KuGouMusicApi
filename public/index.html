@@ -27324,6 +27324,15 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+// 自动获取天气（无需GPS，服务端IP定位）
+(function initWeatherCard(){
+  apiJson('/api/weather?t=' + Date.now()).then(function(wx){
+    if (wx && wx.ok && wx.weather && wx.weather.city) {
+      homeWeatherRadioState.msnWeather = wx.weather;
+      renderHomeDiscover();
+    }
+  }).catch(function(){});
+})();
 </script>
 </body>
 </html>
