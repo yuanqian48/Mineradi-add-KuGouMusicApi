@@ -3971,37 +3971,40 @@ const server = http.createServer(async (req, res) => {
       var wxUrl = 'http://api.msn.com/weather/LiveTile/front?locale=zh-CN&lat=' + wlat.toFixed(6) + '&lon=' + wlon.toFixed(6) + '&apikey=OkWqHMuutahBXs3dBoygqCjgXRt6CV4i5V7SRQURrT';
       var wxResp = await fetch(wxUrl, { headers: { 'User-Agent': UA } });
       var wxBody = await wxResp.text();
-      // 提取 binding[3] (TileWide) 中的数据
-      var wideMatch = wxBody.match(/<binding template="TileWide"[^>]*DisplayName="([^"]+)"[^>]*>([\s\S]*?)<\/binding>/);
-      var city = wideMatch ? wideMatch[1] : '';
-      var wideContent = wideMatch ? wideMatch[2] : '';
-      // 温度：匹配 数字 后面紧跟 °C 或 °
-      var tempMatch = wideContent.match(/(\d+)°[Cc]?/);
-      var tempText = tempMatch ? tempMatch[1] : '';
-      // 天气状况：hint-style="body" 的 text 内容
-      var condMatch = wideContent.match(/hint-style="body"[^>]*>([^<]+)</);
-      var conditionText = condMatch ? condMatch[1].trim() : '';
-      if (!conditionText) {
-        // 备选：hint-wrap="true" 的 text
-        var condMatch2 = wideContent.match(/hint-wrap="true"[^>]*>([^<]+)</);
-        if (condMatch2) conditionText = condMatch2[1].trim();
+      // 从 visual 标签的属性中提取：城市、温度、天气状况
+      var visMatch = wxBody.match(/<visual[^>]*>/);
+      var visualAttrs = visMatch ? visMatch[0] : '';
+      var status1 = (visualAttrs.match(/hint-lockDetailedStatus1="([^"]*)"/) || [])[1] || '';
+      var status2 = (visualAttrs.match(/hint-lockDetailedStatus2="([^"]*)"/) || [])[1] || '';
+      var status3 = (visualAttrs.match(/hint-lockDetailedStatus3="([^"]*)"/) || [])[1] || '';
+      // status1: "河南省洛龙区   36°" → city + temp
+      var cityTemp = status1.split(/\s{2,}/);
+      var city = cityTemp[0] || '';
+      var tempText = (cityTemp[1] || '').replace('°', '');
+      // status2: "晴朗"
+      var conditionText = status2;
+      // status3: "最高气温 36°，最低气温 24°" → forecast day 0
+      // 提取 TileLarge binding 中的预报数据（所有 X° 配对）
+      var largeMatch = wxBody.match(/<binding template="TileLarge"[^>]*>([\s\S]*?)<\/binding>/);
+      var forecast = [];
+      if (largeMatch) {
+        var allTemps = largeMatch[1].match(/<text[^>]*>(\d+)°<\/text>/g);
+        if (allTemps) {
+          for (var i = 0; i < allTemps.length; i += 2) {
+            var h = parseInt(allTemps[i].match(/>(\d+)°/)[1], 10);
+            var l = allTemps[i + 1] ? parseInt(allTemps[i + 1].match(/>(\d+)°/)[1], 10) : 0;
+            forecast.push({ high: h, low: l });
+          }
+        }
       }
       // 城市回退
       if (!city) {
-        var cityMatch2 = wxBody.match(/DisplayName="([^"]+)"/);
-        if (cityMatch2) city = cityMatch2[1];
+        var cityM = wxBody.match(/DisplayName="([^"]+)"/);
+        if (cityM) city = cityM[1];
       }
-      // 提取 binding[4] (TileLarge) 中的未来预报
-      var largeBinding = bindings.length >= 4 ? bindings[3] : '';
-      var forecastSubgroups = largeBinding.match(/<subgroup hint-weight="1">[\s\S]*?<\/subgroup>/g);
-      var forecast = [];
-      if (forecastSubgroups) {
-        forecastSubgroups.forEach(function(sg) {
-          var nums = sg.match(/<text[^>]*>(\d+)°<\/text>/g);
-          if (nums && nums.length >= 2) {
-            forecast.push({ high: parseInt(nums[0].match(/>(\d+)°/)[1], 10), low: parseInt(nums[1].match(/>(\d+)°/)[1], 10) });
-          }
-        });
+      if (!tempText) {
+        var tempM = wxBody.match(/(\d+)°/);
+        if (tempM) tempText = tempM[1];
       }
       // 天气提示语
       var tips = {
