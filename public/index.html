@@ -20057,8 +20057,8 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
   var r = null;
   try {
     if (kgPlaylistId) {
-      // 从 userPlaylists 中查找 listid
-      var kgPl = userPlaylists.find(function(p){ return p && p.provider === 'kugou' && String(p.id) === idStr; });
+      // 从 userPlaylists 中查找 listid（兼容 kg: 前缀和不带前缀的 id）
+      var kgPl = userPlaylists.find(function(p){ return p && p.provider === 'kugou' && (String(p.id) === idStr || String(p.id) === kgPlaylistId); });
       var kgListidParam = kgPl && kgPl.listid ? '&listid=' + encodeURIComponent(kgPl.listid) : '';
       r = await apiJson('/api/kugou/playlist/tracks?id=' + encodeURIComponent(kgPlaylistId) + kgListidParam);
     } else if (qqPlaylistId) {
