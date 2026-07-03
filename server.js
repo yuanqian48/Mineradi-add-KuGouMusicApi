@@ -3912,6 +3912,51 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ---------- 定位：GPS 优先 → IP 回退 ----------
+  if (pn === '/api/location') {
+    try {
+      var lat = parseFloat(url.searchParams.get('lat') || '');
+      var lon = parseFloat(url.searchParams.get('lon') || '');
+      var location;
+      if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+        // GPS 坐标 → 逆地理编码
+        var geoUrl = new URL(OPEN_METEO_GEOCODE_URL);
+        geoUrl.searchParams.set('name', lat + ',' + lon);
+        geoUrl.searchParams.set('count', '1');
+        geoUrl.searchParams.set('language', 'zh');
+        geoUrl.searchParams.set('format', 'json');
+        var geoBody = await requestJson(geoUrl.toString(), { headers: { 'User-Agent': UA } });
+        var result = geoBody && Array.isArray(geoBody.results) && geoBody.results[0];
+        location = {
+          provider: 'gps+open-meteo',
+          city: (result && result.name) || '',
+          district: (result && result.admin2) || '',
+          region: (result && result.admin1) || '',
+          country: (result && result.country) || '',
+          latitude: lat,
+          longitude: lon,
+          timezone: (result && result.timezone) || 'auto',
+        };
+      } else {
+        // 无 GPS → IP 定位
+        location = await fetchIpWeatherLocation();
+      }
+      sendJSON(res, { ok: true, location: location });
+    } catch (err) {
+      // IP 定位失败时回退默认
+      sendJSON(res, { ok: true, location: {
+        provider: 'default',
+        city: WEATHER_DEFAULT_LOCATION.name,
+        region: '',
+        country: WEATHER_DEFAULT_LOCATION.country,
+        latitude: WEATHER_DEFAULT_LOCATION.latitude,
+        longitude: WEATHER_DEFAULT_LOCATION.longitude,
+        timezone: WEATHER_DEFAULT_LOCATION.timezone,
+      }});
+    }
+    return;
+  }
+
   // ---------- 搜索 ----------
   if (pn === '/api/search') {
     try {

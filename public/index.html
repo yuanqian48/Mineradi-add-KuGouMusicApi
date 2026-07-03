@@ -15867,8 +15867,36 @@ function locateWeatherRadio() {
       showToast('定位不可用，可以手动换城市');
     });
   }
-  // Desktop users need a stable city label; browser coordinates can be stale or cityless.
-  useIpFallback();
+  // 优先使用浏览器 GPS 精确定位，失败后回退到 IP 定位
+  if (navigator && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
+    var gpsTimeout = setTimeout(function(){ if (!locationSettled) useIpFallback(); }, 5000);
+    navigator.geolocation.getCurrentPosition(function(pos){
+      clearTimeout(gpsTimeout);
+      if (locationSettled) return;
+      var lat = pos.coords.latitude, lon = pos.coords.longitude;
+      apiJson('/api/location?lat=' + lat + '&lon=' + lon + '&t=' + Date.now()).then(function(data){
+        var loc = data && data.location;
+        if (!loc || !isFinite(Number(loc.latitude)) || !isFinite(Number(loc.longitude))) throw new Error('GPS_LOCATION_FAILED');
+        if (locationSettled) return;
+        locationSettled = true;
+        var displayCity = loc.district ? (loc.city + ' ' + loc.district) : (loc.city || '当前位置');
+        homeWeatherRadioState.city = displayCity;
+        localStorage.setItem(HOME_WEATHER_CITY_KEY, displayCity);
+        renderHomeDiscover();
+        showToast('已定位到 ' + displayCity);
+        loadHomeWeatherRadio(true, { lat: loc.latitude, lon: loc.longitude, city: loc.city || displayCity, timezone: loc.timezone || '' });
+      }).catch(function(e){
+        console.warn('gps location failed:', e);
+        useIpFallback();
+      });
+    }, function(err){
+      clearTimeout(gpsTimeout);
+      console.warn('gps denied/unavailable:', err && err.message);
+      useIpFallback();
+    }, { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 });
+  } else {
+    useIpFallback();
+  }
 }
 function changeWeatherCity() {
   var city = window.prompt('输入城市名', homeWeatherRadioState.city || '上海');
