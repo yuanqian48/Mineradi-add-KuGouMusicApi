@@ -15642,7 +15642,7 @@ function renderHomeDiscover() {
   if (msnWx && msnWx.city) {
     if (wxTip) wxTip.textContent = msnWx.tip || '';
     if (wxMain) wxMain.textContent = (msnWx.temp != null ? msnWx.temp + '° ' : '') + (msnWx.condition || '');
-    if (wxSub) { var fc = msnWx.forecast && msnWx.forecast[0]; wxSub.textContent = msnWx.city + (fc ? (' · ' + fc.low + '°~' + fc.high + '°') : ''); }
+    if (wxSub) { var fcParts = (msnWx.forecast || []).slice(0,3).map(function(f){ return (f.day||'') + ' ' + f.low + '°~' + f.high + '°'; }); wxSub.textContent = msnWx.city + (fcParts.length ? (' · ' + fcParts.join(' | ')) : ''); }
   }
   if (weatherCardTitle) weatherCardTitle.textContent = '我的歌单';
   if (weatherCardSub) {

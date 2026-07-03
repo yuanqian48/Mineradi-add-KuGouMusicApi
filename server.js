@@ -3984,16 +3984,21 @@ const server = http.createServer(async (req, res) => {
       // status2: "晴朗"
       var conditionText = status2;
       // status3: "最高气温 36°，最低气温 24°" → forecast day 0
-      // 提取 TileLarge binding 中的预报数据（所有 X° 配对）
+      // 提取 TileLarge binding 中的预报数据（日期 + 高低温配对）
       var largeMatch = wxBody.match(/<binding template="TileLarge"[^>]*>([\s\S]*?)<\/binding>/);
       var forecast = [];
       if (largeMatch) {
         var allTemps = largeMatch[1].match(/<text[^>]*>(\d+)°<\/text>/g);
+        var dayNames = largeMatch[1].match(/<text hint-align="center">(周[^<]+|今天|明天)<\/text>/g);
         if (allTemps) {
           for (var i = 0; i < allTemps.length; i += 2) {
             var h = parseInt(allTemps[i].match(/>(\d+)°/)[1], 10);
             var l = allTemps[i + 1] ? parseInt(allTemps[i + 1].match(/>(\d+)°/)[1], 10) : 0;
-            forecast.push({ high: h, low: l });
+            var day = '';
+            if (dayNames && i / 2 < dayNames.length) {
+              day = (dayNames[i / 2].match(/>([^<]+)</) || [])[1] || '';
+            }
+            forecast.push({ day: day, high: h, low: l });
           }
         }
       }
