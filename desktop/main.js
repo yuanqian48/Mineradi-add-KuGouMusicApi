@@ -1316,7 +1316,6 @@ ipcMain.handle('kugou-login-qr-check', async (_event, key) => {
       startVipClaimSchedule();
       setTimeout(() => doClaimYouthVip(), 3000);
     }
-    }
   }
   return result;
 });
