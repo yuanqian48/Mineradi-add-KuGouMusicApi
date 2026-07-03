@@ -13046,8 +13046,9 @@ function makeShelfManager() {
       var items = source.map(function(pl){
         var provider = (pl.provider === 'qq' || pl.provider === 'kugou') ? pl.provider : 'netease';
         var sourceLabel = provider === 'kugou' ? 'KG' : (provider === 'qq' ? 'QQ' : 'NE');
+        var shelfPid = provider === 'kugou' ? ('kg:' + pl.id) : (provider === 'qq' ? 'qq:' + pl.id : pl.id);
         return { type:'playlist', title: pl.name, sub:sourceLabel + ' · ' + (pl.trackCount||0)+' 首 · 播放 '+compactCount(pl.playCount||0),
-          cover: pl.cover || '', tag: pl.subscribed ? '收藏歌单' : '我的歌单', playlistId: (provider === 'qq' ? 'qq:' : '') + pl.id, provider: provider };
+          cover: pl.cover || '', tag: pl.subscribed ? '收藏歌单' : '我的歌单', playlistId: shelfPid, provider: provider };
       });
       if (shelfShowsPodcasts() && (shelfPane === 'mine' || shelfMergesCollections()) && myPodcastCollections.length) {
         myPodcastCollections.forEach(function(pc){
@@ -16070,10 +16071,10 @@ async function playHomeDaily() {
     if (!songs.length) { runHomeSearch('热歌'); return; }
     playQueue = songs.map(cloneSong);
     currentIdx = 0;
-    safeRenderQueuePanel('home-hot-chart');
+    togglePlaylistPanel(true);
+    safeRenderQueuePanel('home-hot-chart', { deferWhenHidden: false });
     safeShelfRebuild('home-hot-chart', true);
     forcePlaybackControlsInteractive();
-    togglePlaylistPanel(true);
     safeSwitchPlaylistTab('queue', 'home-hot-chart');
     playQueueAt(0).catch(function(e){ console.warn('[HomeHotChart]', e); });
   } catch(e) { console.warn('[HomeHotChart]', e); runHomeSearch('热歌'); }
