@@ -16073,6 +16073,8 @@ async function playHomeDaily() {
     safeRenderQueuePanel('home-hot-chart');
     safeShelfRebuild('home-hot-chart', true);
     forcePlaybackControlsInteractive();
+    togglePlaylistPanel(true);
+    safeSwitchPlaylistTab('queue', 'home-hot-chart');
     playQueueAt(0).catch(function(e){ console.warn('[HomeHotChart]', e); });
   } catch(e) { console.warn('[HomeHotChart]', e); runHomeSearch('热歌'); }
 }
@@ -16093,6 +16095,8 @@ async function playHomePrivateRadio() {
     safeRenderQueuePanel('home-private-fm');
     safeShelfRebuild('home-private-fm', true);
     forcePlaybackControlsInteractive();
+    togglePlaylistPanel(true);
+    safeSwitchPlaylistTab('queue', 'home-private-fm');
     playQueueAt(0).catch(function(e){ console.warn('[HomePrivateFM]', e); });
   } catch(e) { console.warn('[HomePrivateFM]', e); runHomeSearch('推荐'); }
 }
@@ -16161,6 +16165,8 @@ async function openHomeThirdCard() {
     safeRenderQueuePanel('home-new-songs');
     safeShelfRebuild('home-new-songs', true);
     forcePlaybackControlsInteractive();
+    togglePlaylistPanel(true);
+    safeSwitchPlaylistTab('queue', 'home-new-songs');
     playQueueAt(0).catch(function(e){ console.warn('[HomeNewSongs]', e); });
   } catch(e) { console.warn('[HomeNewSongs]', e); runHomeSearch('新歌'); }
 }
