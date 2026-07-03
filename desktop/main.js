@@ -1311,9 +1311,82 @@ ipcMain.handle('kugou-login-qr-check', async (_event, key) => {
     result.loggedIn = true; result.token = data.token; result.userid = data.userid; result.nickname = '酷狗用户';
     // 异步注册设备获取真实 dfid
     kgRegisterDevDesktop().catch(() => {});
+    // 概念版登录后自动领 VIP
+    if (process.env.platform === 'lite') {
+      startVipClaimSchedule();
+      setTimeout(() => doClaimYouthVip(), 3000);
+    }
+    }
   }
   return result;
 });
+
+// 概念版自动领取 VIP（每日一次）
+const VIP_LOG_FILE = path.join(app.getPath('userData'), '.kg-vip-last');
+function getVipLastClaim() {
+  try { if (fs.existsSync(VIP_LOG_FILE)) return new Date(fs.readFileSync(VIP_LOG_FILE, 'utf8').trim()).getTime(); } catch (_) {}
+  return 0;
+}
+function saveVipLastClaim() {
+  try { fs.writeFileSync(VIP_LOG_FILE, new Date().toISOString()); } catch (_) {}
+}
+function shouldClaimVip() {
+  var last = getVipLastClaim();
+  if (!last) return true;
+  var now = Date.now();
+  // 超过 24 小时
+  if (now - last > 86400000) return true;
+  // 跨天：上次是昨天或更早
+  var lastDay = new Date(last).toDateString();
+  var today = new Date(now).toDateString();
+  return lastDay !== today;
+}
+var vipClaimTimer = null;
+var vipMidnightTimer = null;
+function doClaimYouthVip() {
+  if (!shouldClaimVip()) { console.log('[KG VIP] 今日已领取，跳过'); return; }
+  const obj = kgCookieObj();
+  if (!obj.token || !obj.userid) { console.log('[KG VIP] 未登录，跳过'); return; }
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  console.log('[KG VIP] 开始每日领取...');
+  safeKGRequest({
+    url: '/youth/v1/recharge/receive_vip_listen_song',
+    encryptType: 'android', method: 'POST',
+    params: { source_id: 90139, receive_day: tomorrow },
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    cookie: obj,
+  }).then((r) => {
+    console.log('[KG VIP] 领取成功, status:', (r.body && r.body.status));
+    return safeKGRequest({
+      url: '/youth/v1/listen_song/upgrade_vip_reward',
+      encryptType: 'android', method: 'POST',
+      params: { kugouid: Number(obj.userid || 0), ad_type: 1 },
+      cookie: obj,
+    });
+  }).then((r) => {
+    console.log('[KG VIP] 升级成功, status:', (r.body && r.body.status));
+    saveVipLastClaim();
+  }).catch(e => console.warn('[KG VIP] 失败:', (e && e.body && e.body.error) || (e && e.message)));
+}
+function startVipClaimSchedule() {
+  if (vipClaimTimer) clearInterval(vipClaimTimer);
+  if (vipMidnightTimer) clearTimeout(vipMidnightTimer);
+  // 每30分钟检查一次
+  vipClaimTimer = setInterval(function() {
+    if (process.env.platform === 'lite' && kgCookieObj().token) doClaimYouthVip();
+  }, 1800000);
+  // 计算到凌晨0点的毫秒数，到了就触发
+  function scheduleMidnight() {
+    var now = new Date();
+    var midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
+    var ms = midnight.getTime() - now.getTime();
+    vipMidnightTimer = setTimeout(function() {
+      if (process.env.platform === 'lite' && kgCookieObj().token) doClaimYouthVip();
+      scheduleMidnight(); // 递归调度下一个凌晨
+    }, ms + 1000);
+  }
+  scheduleMidnight();
+}
 
 // 桌面版 register_dev
 async function kgRegisterDevDesktop() {
@@ -1611,6 +1684,31 @@ ipcMain.handle('kugou-youth-day-vip', async (_event, receiveDay) => {
   return { provider: 'kugou', ...(r.body || {}) };
 });
 
+// -------- 酷狗概念版：手动测试 VIP --------
+ipcMain.handle('kugou-test-vip', async () => {
+  if (process.env.platform !== 'lite') return { ok: false, error: '需要概念版' };
+  try {
+    const obj = kgCookieObj();
+    if (!obj.token) return { ok: false, error: '未登录' };
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const r1 = await safeKGRequest({
+      url: '/youth/v1/recharge/receive_vip_listen_song',
+      encryptType: 'android', method: 'POST',
+      params: { source_id: 90139, receive_day: tomorrow },
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      cookie: obj,
+    });
+    const r2 = await safeKGRequest({
+      url: '/youth/v1/listen_song/upgrade_vip_reward',
+      encryptType: 'android', method: 'POST',
+      params: { kugouid: Number(obj.userid || 0), ad_type: 1 },
+      cookie: obj,
+    });
+    saveVipLastClaim();
+    return { ok: true, claim: (r1.body || {}), upgrade: (r2.body || {}) };
+  } catch(e) { return { ok: false, error: e.message }; }
+});
+
 // -------- 酷狗概念版：升级 VIP --------
 ipcMain.handle('kugou-youth-day-vip-upgrade', async () => {
   const obj = kgCookieObj();
@@ -1791,41 +1889,10 @@ async function createWindow() {
   localServer = require(path.join(__dirname, '..', 'server.js'));
   await waitForServer(localServer);
 
-  // 概念版：每天首次启动自动领取 VIP
+  // 概念版：启动 VIP 定时器（30分钟检查+凌晨触发+启动检查）
   if (process.env.platform === 'lite') {
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-      const vipLogFile = path.join(app.getPath('userData'), '.kg-vip-last');
-      let lastVipDay = '';
-      try { if (fs.existsSync(vipLogFile)) lastVipDay = fs.readFileSync(vipLogFile, 'utf8').trim(); } catch (_) {}
-      if (lastVipDay !== today) {
-        const obj = kgCookieObj();
-        if (obj.token && obj.userid) {
-          console.log('[KG VIP] 开始每日领取...');
-          safeKGRequest({
-            url: '/youth/v1/recharge/receive_vip_listen_song',
-            encryptType: 'android', method: 'POST',
-            params: { source_id: 90139, receive_day: tomorrow },
-            headers: { 'content-type': 'application/x-www-form-urlencoded' },
-            cookie: obj,
-          }).then((r) => {
-            console.log('[KG VIP] 领取成功, status:', (r.body && r.body.status));
-            return safeKGRequest({
-              url: '/youth/v1/listen_song/upgrade_vip_reward',
-              encryptType: 'android', method: 'POST',
-              params: { kugouid: Number(obj.userid || 0), ad_type: 1 },
-              cookie: obj,
-            });
-          }).then((r) => {
-            console.log('[KG VIP] 升级成功, status:', (r.body && r.body.status));
-            fs.writeFileSync(vipLogFile, today);
-          }).catch(e => console.warn('[KG VIP] 失败:', (e && e.body && e.body.error) || (e && e.message)));
-        }
-      } else {
-        console.log('[KG VIP] 今日已领取，跳过');
-      }
-    } catch (_) {}
+    startVipClaimSchedule();
+    setTimeout(() => { if (kgCookieObj().token) doClaimYouthVip(); }, 5000);
   }
 
   const initialBounds = getWindowedBounds();

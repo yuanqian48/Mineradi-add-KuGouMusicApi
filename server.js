@@ -5563,21 +5563,19 @@ const server = http.createServer(async (req, res) => {
   if (pn === '/api/kugou/youth/day/vip') {
     try {
       const cookieObj = kgCookieObj();
-      // 默认使用明天日期（酷狗要求不能小于今天）
       const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
       const receiveDay = url.searchParams.get('receive_day') || tomorrow;
       const r = await kugouRequest({
         url: '/youth/v1/recharge/receive_vip_listen_song',
-        encryptType: 'android',
-        method: 'POST',
+        encryptType: 'android', method: 'POST',
         params: { source_id: 90139, receive_day: receiveDay },
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
         cookie: cookieObj,
       });
-      sendJSON(res, { provider: 'kugou', ...(r && r.data) });
+      sendJSON(res, { ok: true, provider: 'kugou', ...(r && r.data) });
     } catch (err) {
-      console.error('[KGYouthVip]', err);
-      sendJSON(res, { provider: 'kugou', error: err.message }, 500);
+      var ec = (err.data && err.data.error_code) || err.code || 0;
+      sendJSON(res, { ok: ec === 131001, provider: 'kugou', error_code: ec, error_msg: (err.data && err.data.error_msg) || err.message, already: ec === 131001 });
     }
     return;
   }
@@ -5589,15 +5587,14 @@ const server = http.createServer(async (req, res) => {
       const userid = url.searchParams.get('userid') || cookieObj.userid || 0;
       const r = await kugouRequest({
         url: '/youth/v1/listen_song/upgrade_vip_reward',
-        encryptType: 'android',
-        method: 'POST',
+        encryptType: 'android', method: 'POST',
         params: { kugouid: Number(userid), ad_type: 1 },
         cookie: cookieObj,
       });
-      sendJSON(res, { provider: 'kugou', ...(r && r.data) });
+      sendJSON(res, { ok: true, provider: 'kugou', ...(r && r.data) });
     } catch (err) {
-      console.error('[KGYouthVipUpgrade]', err);
-      sendJSON(res, { provider: 'kugou', error: err.message }, 500);
+      var ec2 = (err.data && err.data.error_code) || err.code || 0;
+      sendJSON(res, { ok: ec2 === 297002, provider: 'kugou', error_code: ec2, error_msg: (err.data && err.data.error_msg) || err.message, already: ec2 === 297002 });
     }
     return;
   }
