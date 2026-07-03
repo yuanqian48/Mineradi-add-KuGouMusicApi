@@ -15648,11 +15648,6 @@ function renderHomeDiscover() {
   if (weatherCardSub) {
     weatherCardSub.textContent = playlistItem ? (((playlistItem.trackCount || 0) ? playlistItem.trackCount + ' 首 · ' : '') + (playlistItem.creator || '打开左侧歌单库')) : '打开左侧歌单库';
   }
-    if (weatherCardTitle) weatherCardTitle.textContent = '我的歌单';
-    if (weatherCardSub) {
-      weatherCardSub.textContent = playlistItem ? (((playlistItem.trackCount || 0) ? playlistItem.trackCount + ' 首 · ' : '') + (playlistItem.creator || '打开左侧歌单库')) : '打开左侧歌单库';
-    }
-  }
   if (continueTitle) continueTitle.textContent = summary.recent ? summary.recent.name : '继续听';
   if (continueSub) continueSub.textContent = summary.recent ? (summary.recent.artist || summary.recent.source || '最近播放') : '最近播放会出现在这里';
   if (profileTitle) profileTitle.textContent = summary.topArtist ? summary.topArtist.name : (summary.topSong ? summary.topSong.name : '听歌画像');
