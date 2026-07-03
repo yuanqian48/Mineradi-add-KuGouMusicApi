@@ -3957,6 +3957,51 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ---------- 天气（MSN Weather API）----------
+  if (pn === '/api/weather') {
+    try {
+      var wlat = parseFloat(url.searchParams.get('lat') || '');
+      var wlon = parseFloat(url.searchParams.get('lon') || '');
+      if (!Number.isFinite(wlat) || !Number.isFinite(wlon)) {
+        // 无坐标时先 IP 定位
+        var ipLoc = await fetchIpWeatherLocation().catch(function(){ return null; });
+        if (ipLoc) { wlat = ipLoc.latitude; wlon = ipLoc.longitude; }
+        else { sendJSON(res, { ok: false, error: 'NO_COORDINATES' }, 400); return; }
+      }
+      var wxUrl = 'http://api.msn.com/weather/LiveTile/front?locale=zh-CN&lat=' + wlat.toFixed(6) + '&lon=' + wlon.toFixed(6) + '&apikey=OkWqHMuutahBXs3dBoygqCjgXRt6CV4i5V7SRQURrT';
+      var wxResp = await fetch(wxUrl, { headers: { 'User-Agent': UA } });
+      var wxBody = await wxResp.text();
+      // 解析 XML 提取关键字段
+      var cityMatch = wxBody.match(/DisplayName="([^"]+)"/);
+      var iconMatch = wxBody.match(/icons\/\d+\/([^."]+)/);
+      var tempMatch = wxBody.match(/<text[^>]*>(\d+)<\/text>/);
+      // 未来天气预报（高温/低温配对）
+      var dailyMatches = wxBody.match(/<text hint-align="center">(\d+)°<\/text>/g);
+      var dailyHighs = [];
+      var dailyLows = [];
+      if (dailyMatches) {
+        for (var i = 0; i < dailyMatches.length; i += 2) {
+          var h = parseInt((dailyMatches[i].match(/>(\d+)°/))[1], 10);
+          dailyHighs.push(h);
+          if (dailyMatches[i + 1]) {
+            var l = parseInt((dailyMatches[i + 1].match(/>(\d+)°/))[1], 10);
+            dailyLows.push(l);
+          }
+        }
+      }
+      sendJSON(res, { ok: true, weather: {
+        city: cityMatch ? cityMatch[1] : '',
+        temp: tempMatch ? parseInt(tempMatch[1], 10) : null,
+        icon: iconMatch ? iconMatch[1] : '',
+        forecast: dailyHighs.map(function(h, i){ return { high: h, low: dailyLows[i] || 0 }; })
+      }});
+    } catch (err) {
+      console.error('[Weather]', err);
+      sendJSON(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
   // ---------- 搜索 ----------
   if (pn === '/api/search') {
     try {
