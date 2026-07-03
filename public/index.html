@@ -24116,6 +24116,10 @@ async function logoutActiveAccount() {
     renderUserBtn();
     if (hasAnyPlatformLogin()) updateUserModalUi();
     else closeUserModal();
+    homeDiscoverState.loaded = false;
+    homeDiscoverState.loggedIn = hasAnyPlatformLogin();
+    loadHomeDiscover(true);
+    refreshUserPlaylists(true);
     showToast('已退出酷狗');
     return;
   }
@@ -24134,6 +24138,10 @@ async function logoutActiveAccount() {
     renderUserBtn();
     if (hasAnyPlatformLogin()) updateUserModalUi();
     else closeUserModal();
+    homeDiscoverState.loaded = false;
+    homeDiscoverState.loggedIn = hasAnyPlatformLogin();
+    loadHomeDiscover(true);
+    refreshUserPlaylists(true);
     showToast('已退出 QQ 音乐');
     return;
   }
@@ -24159,6 +24167,10 @@ async function doLogout() {
   renderUserBtn();
   safeShelfRebuild('logout');
   closeUserModal();
+  homeDiscoverState.loaded = false;
+  homeDiscoverState.loggedIn = hasAnyPlatformLogin();
+  loadHomeDiscover(true);
+  refreshUserPlaylists(true);
   showToast('已退出登录');
 }
 var startupLoginGuideShown = false;
