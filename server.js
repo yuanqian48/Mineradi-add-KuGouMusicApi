@@ -3971,23 +3971,25 @@ const server = http.createServer(async (req, res) => {
       var wxUrl = 'http://api.msn.com/weather/LiveTile/front?locale=zh-CN&lat=' + wlat.toFixed(6) + '&lon=' + wlon.toFixed(6) + '&apikey=OkWqHMuutahBXs3dBoygqCjgXRt6CV4i5V7SRQURrT';
       var wxResp = await fetch(wxUrl, { headers: { 'User-Agent': UA } });
       var wxBody = await wxResp.text();
-      // 提取 binding[3] (TileWide) 中的数据：城市、当前温度、天气状况
-      var bindings = wxBody.split('</binding>');
-      var wideBinding = bindings.length >= 3 ? bindings[2] : '';  // binding[3] 是 TileWide (0-indexed)
-      // 城市: DisplayName 属性
-      var cityMatch = wideBinding.match(/DisplayName="([^"]+)"/);
-      // 当前温度: 第二个 subgroup 的 text 内容
-      var tempSubgroups = wideBinding.match(/<subgroup[^>]*>[\s\S]*?<\/subgroup>/g);
-      var tempText = '';
-      if (tempSubgroups && tempSubgroups.length >= 2) {
-        var tempMatch = tempSubgroups[1].match(/<text[^>]*>(\d+)<\/text>/);
-        if (tempMatch) tempText = tempMatch[1];
+      // 提取 binding[3] (TileWide) 中的数据
+      var wideMatch = wxBody.match(/<binding template="TileWide"[^>]*DisplayName="([^"]+)"[^>]*>([\s\S]*?)<\/binding>/);
+      var city = wideMatch ? wideMatch[1] : '';
+      var wideContent = wideMatch ? wideMatch[2] : '';
+      // 温度：匹配 数字 后面紧跟 °C 或 °
+      var tempMatch = wideContent.match(/(\d+)°[Cc]?/);
+      var tempText = tempMatch ? tempMatch[1] : '';
+      // 天气状况：hint-style="body" 的 text 内容
+      var condMatch = wideContent.match(/hint-style="body"[^>]*>([^<]+)</);
+      var conditionText = condMatch ? condMatch[1].trim() : '';
+      if (!conditionText) {
+        // 备选：hint-wrap="true" 的 text
+        var condMatch2 = wideContent.match(/hint-wrap="true"[^>]*>([^<]+)</);
+        if (condMatch2) conditionText = condMatch2[1].trim();
       }
-      // 天气状况: 第三个 subgroup 的 text 内容
-      var conditionText = '';
-      if (tempSubgroups && tempSubgroups.length >= 4) {
-        var condMatch = tempSubgroups[3].match(/<text[^>]*>([^<]+)<\/text>/);
-        if (condMatch) conditionText = condMatch[1].trim();
+      // 城市回退
+      if (!city) {
+        var cityMatch2 = wxBody.match(/DisplayName="([^"]+)"/);
+        if (cityMatch2) city = cityMatch2[1];
       }
       // 提取 binding[4] (TileLarge) 中的未来预报
       var largeBinding = bindings.length >= 4 ? bindings[3] : '';
@@ -4014,7 +4016,7 @@ const server = http.createServer(async (req, res) => {
       Object.keys(tips).forEach(function(k){ if (conditionText.indexOf(k) !== -1 && !tip) tip = tips[k]; });
       if (!tip) tip = '愿你拥有比阳光明媚的心情';
       sendJSON(res, { ok: true, weather: {
-        city: cityMatch ? cityMatch[1] : '',
+        city: city,
         temp: tempText ? parseInt(tempText, 10) : null,
         condition: conditionText,
         tip: tip,
