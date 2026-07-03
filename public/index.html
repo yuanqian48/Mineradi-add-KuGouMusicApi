@@ -15634,11 +15634,11 @@ function renderHomeDiscover() {
   var libSub = document.getElementById('home-library-sub');
   var msnWx = homeWeatherRadioState.msnWeather;
   if (msnWx && msnWx.city) {
-    if (weatherCardTitle) weatherCardTitle.textContent = msnWx.city;
+    if (weatherCardTitle) weatherCardTitle.textContent = (msnWx.temp != null ? msnWx.temp + '° ' : '') + (msnWx.condition || '');
     if (weatherCardSub) {
       var fc = msnWx.forecast && msnWx.forecast[0];
       var fcStr = fc ? (fc.low + '° ~ ' + fc.high + '°') : '';
-      weatherCardSub.textContent = (msnWx.temp != null ? msnWx.temp + '°' : '') + (fcStr ? ' · ' + fcStr : '');
+      weatherCardSub.textContent = msnWx.city + (fcStr ? ' · ' + fcStr : '');
     }
   } else {
     if (weatherCardTitle) weatherCardTitle.textContent = '我的歌单';

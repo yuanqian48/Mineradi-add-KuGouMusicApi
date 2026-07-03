@@ -3971,29 +3971,41 @@ const server = http.createServer(async (req, res) => {
       var wxUrl = 'http://api.msn.com/weather/LiveTile/front?locale=zh-CN&lat=' + wlat.toFixed(6) + '&lon=' + wlon.toFixed(6) + '&apikey=OkWqHMuutahBXs3dBoygqCjgXRt6CV4i5V7SRQURrT';
       var wxResp = await fetch(wxUrl, { headers: { 'User-Agent': UA } });
       var wxBody = await wxResp.text();
-      // 解析 XML 提取关键字段
-      var cityMatch = wxBody.match(/DisplayName="([^"]+)"/);
-      var iconMatch = wxBody.match(/icons\/\d+\/([^."]+)/);
-      var tempMatch = wxBody.match(/<text[^>]*>(\d+)<\/text>/);
-      // 未来天气预报（高温/低温配对）
-      var dailyMatches = wxBody.match(/<text hint-align="center">(\d+)°<\/text>/g);
-      var dailyHighs = [];
-      var dailyLows = [];
-      if (dailyMatches) {
-        for (var i = 0; i < dailyMatches.length; i += 2) {
-          var h = parseInt((dailyMatches[i].match(/>(\d+)°/))[1], 10);
-          dailyHighs.push(h);
-          if (dailyMatches[i + 1]) {
-            var l = parseInt((dailyMatches[i + 1].match(/>(\d+)°/))[1], 10);
-            dailyLows.push(l);
+      // 提取 binding[3] (TileWide) 中的数据：城市、当前温度、天气状况
+      var bindings = wxBody.split('</binding>');
+      var wideBinding = bindings.length >= 3 ? bindings[2] : '';  // binding[3] 是 TileWide (0-indexed)
+      // 城市: DisplayName 属性
+      var cityMatch = wideBinding.match(/DisplayName="([^"]+)"/);
+      // 当前温度: 第二个 subgroup 的 text 内容
+      var tempSubgroups = wideBinding.match(/<subgroup[^>]*>[\s\S]*?<\/subgroup>/g);
+      var tempText = '';
+      if (tempSubgroups && tempSubgroups.length >= 2) {
+        var tempMatch = tempSubgroups[1].match(/<text[^>]*>(\d+)<\/text>/);
+        if (tempMatch) tempText = tempMatch[1];
+      }
+      // 天气状况: 第三个 subgroup 的 text 内容
+      var conditionText = '';
+      if (tempSubgroups && tempSubgroups.length >= 4) {
+        var condMatch = tempSubgroups[3].match(/<text[^>]*>([^<]+)<\/text>/);
+        if (condMatch) conditionText = condMatch[1].trim();
+      }
+      // 提取 binding[4] (TileLarge) 中的未来预报
+      var largeBinding = bindings.length >= 4 ? bindings[3] : '';
+      var forecastSubgroups = largeBinding.match(/<subgroup hint-weight="1">[\s\S]*?<\/subgroup>/g);
+      var forecast = [];
+      if (forecastSubgroups) {
+        forecastSubgroups.forEach(function(sg) {
+          var nums = sg.match(/<text[^>]*>(\d+)°<\/text>/g);
+          if (nums && nums.length >= 2) {
+            forecast.push({ high: parseInt(nums[0].match(/>(\d+)°/)[1], 10), low: parseInt(nums[1].match(/>(\d+)°/)[1], 10) });
           }
-        }
+        });
       }
       sendJSON(res, { ok: true, weather: {
         city: cityMatch ? cityMatch[1] : '',
-        temp: tempMatch ? parseInt(tempMatch[1], 10) : null,
-        icon: iconMatch ? iconMatch[1] : '',
-        forecast: dailyHighs.map(function(h, i){ return { high: h, low: dailyLows[i] || 0 }; })
+        temp: tempText ? parseInt(tempText, 10) : null,
+        condition: conditionText,
+        forecast: forecast
       }});
     } catch (err) {
       console.error('[Weather]', err);
