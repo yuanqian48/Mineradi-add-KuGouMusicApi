@@ -1944,6 +1944,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
         <div class="home-title" id="home-weather-tip" style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:4px"></div>
         <div class="home-title" id="home-weather-main" style="font-size:26px;font-weight:780"></div>
         <div class="home-sub" id="home-weather-sub" style="font-size:13px;color:rgba(255,255,255,.45);margin-top:4px"></div>
+        <div class="home-sub" id="home-hotcomment" style="font-size:12px;color:rgba(255,255,255,.35);margin-top:16px;line-height:1.6;max-width:320px;font-style:italic"></div>
         <button class="home-chip home-console-chip" type="button" onclick="openHomePlayerConsole()">展开播放器控制台</button>
       </div>
     </div>
@@ -27315,6 +27316,15 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+// 网易云热评
+function fetchHotComment(){
+  apiJson('/api/hotcomment?t=' + Date.now()).then(function(r){
+    if (r && r.ok && r.text) {
+      var el = document.getElementById('home-hotcomment');
+      if (el) el.textContent = r.text;
+    }
+  }).catch(function(){});
+}
 // 自动获取天气（优先GPS精确定位，失败后IP回退）
 (function initWeatherCard(){
   function fetchWeatherByLatLon(lat, lon) {
@@ -27345,6 +27355,9 @@ animate();
   } else {
     ipFallback();
   }
+  // 热评：首次加载 + 每5分钟刷新
+  fetchHotComment();
+  setInterval(fetchHotComment, 300000);
 })();
 </script>
 </body>

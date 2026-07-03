@@ -4037,6 +4037,18 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ---------- 网易云热评 ----------
+  if (pn === '/api/hotcomment') {
+    try {
+      var hcResp = await fetch('https://yunapi.cn/api/sjwyyrp', { headers: { 'User-Agent': UA } });
+      var hcText = await hcResp.text();
+      sendJSON(res, { ok: true, text: hcText.trim() });
+    } catch (err) {
+      sendJSON(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
   // ---------- 搜索 ----------
   if (pn === '/api/search') {
     try {
