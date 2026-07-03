@@ -15633,7 +15633,17 @@ function renderHomeDiscover() {
   var libTitle = document.getElementById('home-library-title');
   var libSub = document.getElementById('home-library-sub');
   var msnWx = homeWeatherRadioState.msnWeather;
+  var weatherLabel = document.querySelector('#home-weather-card-label') || document.getElementById('home-weather-card-label');
+  if (!weatherLabel) {
+    var card = document.getElementById('home-weather-card-title');
+    if (card && card.parentElement) {
+      var lbl = card.parentElement.querySelector('.home-card-label');
+      if (lbl) lbl.id = 'home-weather-card-label';
+    }
+  }
+  weatherLabel = document.getElementById('home-weather-card-label');
   if (msnWx && msnWx.city) {
+    if (weatherLabel) weatherLabel.textContent = msnWx.tip || '';
     if (weatherCardTitle) weatherCardTitle.textContent = (msnWx.temp != null ? msnWx.temp + '° ' : '') + (msnWx.condition || '');
     if (weatherCardSub) {
       var fc = msnWx.forecast && msnWx.forecast[0];
@@ -15641,6 +15651,7 @@ function renderHomeDiscover() {
       weatherCardSub.textContent = msnWx.city + (fcStr ? ' · ' + fcStr : '');
     }
   } else {
+    if (weatherLabel) weatherLabel.textContent = 'Library';
     if (weatherCardTitle) weatherCardTitle.textContent = '我的歌单';
     if (weatherCardSub) {
       weatherCardSub.textContent = playlistItem ? (((playlistItem.trackCount || 0) ? playlistItem.trackCount + ' 首 · ' : '') + (playlistItem.creator || '打开左侧歌单库')) : '打开左侧歌单库';

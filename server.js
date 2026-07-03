@@ -4001,10 +4001,23 @@ const server = http.createServer(async (req, res) => {
           }
         });
       }
+      // 天气提示语
+      var tips = {
+        '晴':'愿你拥有比阳光明媚的心情','多云':'阴晴之间，谨防紫外线侵扰','阴':'不要被阴云遮挡住好心情',
+        '小雨':'雨虽小，注意保暖别感冒','中雨':'记得随身携带雨伞哦','大雨':'出门最好穿雨衣，勿挡视线',
+        '暴雨':'出门最好穿雨衣，勿挡视线','阵雨':'记得随身携带雨伞哦','雷阵雨':'出门最好穿雨衣，勿挡视线',
+        '雪':'雪天路滑，注意保暖','中雪':'雪天路滑，注意保暖','大雪':'雪天路滑，注意保暖',
+        '霾':'极少数敏感人群应减少户外活动','雾':'极少数敏感人群应减少户外活动',
+        '沙尘':'极少数敏感人群应减少户外活动','浮尘':'极少数敏感人群应减少户外活动'
+      };
+      var tip = '';
+      Object.keys(tips).forEach(function(k){ if (conditionText.indexOf(k) !== -1 && !tip) tip = tips[k]; });
+      if (!tip) tip = '愿你拥有比阳光明媚的心情';
       sendJSON(res, { ok: true, weather: {
         city: cityMatch ? cityMatch[1] : '',
         temp: tempText ? parseInt(tempText, 10) : null,
         condition: conditionText,
+        tip: tip,
         forecast: forecast
       }});
     } catch (err) {
