@@ -1941,7 +1941,9 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <div class="empty-home-shell">
     <div class="home-hero">
       <div class="home-hero-inner home-construction-inner">
-        <div class="home-title home-construction-title" style="display:none">🚧此处施工，敬请期待🚧</div>
+        <div class="home-title" id="home-weather-tip" style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:4px"></div>
+        <div class="home-title" id="home-weather-main" style="font-size:26px;font-weight:780"></div>
+        <div class="home-sub" id="home-weather-sub" style="font-size:13px;color:rgba(255,255,255,.45);margin-top:4px"></div>
         <button class="home-chip home-console-chip" type="button" onclick="openHomePlayerConsole()">展开播放器控制台</button>
       </div>
     </div>
@@ -15632,26 +15634,20 @@ function renderHomeDiscover() {
   var profileSub = document.getElementById('home-profile-sub');
   var libTitle = document.getElementById('home-library-title');
   var libSub = document.getElementById('home-library-sub');
+  // 天气（施工位）
   var msnWx = homeWeatherRadioState.msnWeather;
-  var weatherLabel = document.querySelector('#home-weather-card-label') || document.getElementById('home-weather-card-label');
-  if (!weatherLabel) {
-    var card = document.getElementById('home-weather-card-title');
-    if (card && card.parentElement) {
-      var lbl = card.parentElement.querySelector('.home-card-label');
-      if (lbl) lbl.id = 'home-weather-card-label';
-    }
-  }
-  weatherLabel = document.getElementById('home-weather-card-label');
+  var wxTip = document.getElementById('home-weather-tip');
+  var wxMain = document.getElementById('home-weather-main');
+  var wxSub = document.getElementById('home-weather-sub');
   if (msnWx && msnWx.city) {
-    if (weatherLabel) weatherLabel.textContent = msnWx.tip || '';
-    if (weatherCardTitle) weatherCardTitle.textContent = (msnWx.temp != null ? msnWx.temp + '° ' : '') + (msnWx.condition || '');
-    if (weatherCardSub) {
-      var fc = msnWx.forecast && msnWx.forecast[0];
-      var fcStr = fc ? (fc.low + '° ~ ' + fc.high + '°') : '';
-      weatherCardSub.textContent = msnWx.city + (fcStr ? ' · ' + fcStr : '');
-    }
-  } else {
-    if (weatherLabel) weatherLabel.textContent = 'Library';
+    if (wxTip) wxTip.textContent = msnWx.tip || '';
+    if (wxMain) wxMain.textContent = (msnWx.temp != null ? msnWx.temp + '° ' : '') + (msnWx.condition || '');
+    if (wxSub) { var fc = msnWx.forecast && msnWx.forecast[0]; wxSub.textContent = msnWx.city + (fc ? (' · ' + fc.low + '°~' + fc.high + '°') : ''); }
+  }
+  if (weatherCardTitle) weatherCardTitle.textContent = '我的歌单';
+  if (weatherCardSub) {
+    weatherCardSub.textContent = playlistItem ? (((playlistItem.trackCount || 0) ? playlistItem.trackCount + ' 首 · ' : '') + (playlistItem.creator || '打开左侧歌单库')) : '打开左侧歌单库';
+  }
     if (weatherCardTitle) weatherCardTitle.textContent = '我的歌单';
     if (weatherCardSub) {
       weatherCardSub.textContent = playlistItem ? (((playlistItem.trackCount || 0) ? playlistItem.trackCount + ' 首 · ' : '') + (playlistItem.creator || '打开左侧歌单库')) : '打开左侧歌单库';
