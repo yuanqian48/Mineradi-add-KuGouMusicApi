@@ -2410,8 +2410,8 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     </filter>
   </defs>
 </svg>
-<div id="comment-hot-card" style="position:fixed;left:50%;bottom:116px;transform:translateX(-50%);z-index:56;width:calc(100% - 40px);max-width:480px;height:52px;overflow:hidden;padding:0 16px;border-radius:13px;border:1px solid rgba(255,255,255,.08);background:rgba(18,18,26,0.42);backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);box-shadow:0 6px 30px rgba(0,0,0,0.14),inset 0 1px 0 rgba(255,255,255,0.05);font-size:12px;color:rgba(255,255,255,.72);line-height:52px;text-align:center;display:none;pointer-events:none;white-space:nowrap;text-overflow:ellipsis"></div>
-<div id="comment-panel" style="display:none;position:fixed;right:16px;top:80px;bottom:150px;z-index:55;width:300px;background:rgba(18,18,26,0.4);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;overflow-y:auto;backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);box-shadow:0 8px 40px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.04);scrollbar-width:none;-ms-overflow-style:none">
+<div id="comment-hot-card" style="position:fixed;left:50%;bottom:130px;transform:translateX(-50%);z-index:56;width:calc(100% - 40px);max-width:480px;height:52px;overflow:hidden;padding:0 16px;border-radius:13px;border:1px solid rgba(255,255,255,.08);background:rgba(18,18,26,0.42);backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);box-shadow:0 6px 30px rgba(0,0,0,0.14),inset 0 1px 0 rgba(255,255,255,0.05);font-size:12px;color:rgba(255,255,255,.72);line-height:52px;text-align:center;display:none;pointer-events:none;white-space:nowrap;text-overflow:ellipsis"></div>
+<div id="comment-panel" style="position:fixed;right:-320px;top:80px;bottom:150px;z-index:55;width:300px;background:rgba(18,18,26,0.4);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;overflow-y:auto;backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);box-shadow:0 8px 40px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.04);scrollbar-width:none;-ms-overflow-style:none;transition:right .35s cubic-bezier(.22,1,.36,1)">
 <style>#comment-panel::-webkit-scrollbar{display:none}</style>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <span style="font-size:14px;font-weight:700;color:#fff">歌曲评论</span>
@@ -19306,9 +19306,9 @@ async function fetchLyric(songOrId, token) {
     }
     var r = await apiJson(endpoint);
     if (token !== trackSwitchToken) return;
-    // 清除旧热评，加载新评论
+    // 清除旧热评，立即异步加载新评论
     clearCommentHotCard();
-    setTimeout(function(){ if (provider === 'kugou' && trackSwitchToken === token) loadComments(); }, 500);
+    setTimeout(function(){ if (provider === 'kugou' && trackSwitchToken === token) loadComments(); }, 100);
     // 酷狗歌词翻译
     if (provider === 'kugou') {
       apiJson('/api/kugou/lyric/trans?hash=' + encodeURIComponent(song.hash || song.id || '')).then(function(tr){
@@ -27443,16 +27443,16 @@ var _commentCache = [];
 // 点击外部关闭评论区
 document.addEventListener('click', function(e){
   var p = document.getElementById('comment-panel');
-  if (p && p.style.display !== 'none' && !p.contains(e.target) && e.target.id !== 'cmt-btn' && !(e.target.closest && e.target.closest('#cmt-btn'))) {
-    p.style.display = 'none';
+  if (p && p.style.right === '16px' && !p.contains(e.target) && e.target.id !== 'cmt-btn' && !(e.target.closest && e.target.closest('#cmt-btn'))) {
+    p.style.right = '-320px';
   }
 });
 function toggleCommentPanel() {
   var panel = document.getElementById('comment-panel');
   if (!panel) return;
-  var show = panel.style.display === 'none';
-  panel.style.display = show ? 'block' : 'none';
-  if (show) loadComments();
+  var open = panel.style.right === '16px';
+  panel.style.right = open ? '-320px' : '16px';
+  if (!open) loadComments();
 }
 function loadComments() {
   var song = typeof currentCoverSong === 'function' ? currentCoverSong() : null;
