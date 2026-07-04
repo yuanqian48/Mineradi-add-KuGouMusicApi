@@ -26612,9 +26612,12 @@ document.addEventListener('DOMContentLoaded', function(){
     return;
   }
   playMineradioIntroSound();
-  splashTimer = setTimeout(markSplashReadyToEnter, 3000);
-  // 自动进入（3秒后自动消失）
-  splashTimer = setTimeout(function(){ dismissSplash(); }, 4000);
+  splashTimer = setTimeout(markSplashReadyToEnter, 2500);
+  // 自动进入（仅在用户未手动操作时生效）
+  setTimeout(function(){
+    var s = document.getElementById('splash');
+    if (s && !s.classList.contains('hide') && !s.classList.contains('exiting')) dismissSplash();
+  }, 3500);
 });
 
 var desktopOverlayPushState = {
