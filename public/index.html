@@ -13444,7 +13444,9 @@ function makeShelfManager() {
       }
       card.mesh.scale.setScalar(scale);
       var disabledByDetail = detailOpenSide;
-      var opacity = absD < 0.5 ? 1.0 : Math.max(0.22, 1.0 - absD * 0.30);
+      var opacity = absD < 0.5 ? 1.0 : Math.max(0.14, 1.0 - absD * 0.36);
+      // 有选中卡片时，非选中卡片更透明
+      if (selectedIdx >= 0 && !card.selected) opacity *= 0.45;
       if (disabledByDetail) {
         opacity *= card.index === openCardIdx ? 0.16 : 0.08;
         card.mesh.material.color.setScalar(card.index === openCardIdx ? 0.42 : 0.25);
