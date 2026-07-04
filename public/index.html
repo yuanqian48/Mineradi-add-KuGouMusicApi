@@ -2476,12 +2476,12 @@ body.perf-mode .home-card::before,body.perf-mode .home-card::after{display:none}
       <button id="mlrc-btn" class="ctrl-btn" onclick="toggleMultiLyric()" title="多行歌词"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="12" y2="16"/></svg></button>
       <button id="cmt-btn" class="ctrl-btn" onclick="toggleCommentPanel()" title="歌曲评论"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
       <button id="speed-btn" class="ctrl-btn" onclick="toggleSpeedCard()" title="倍速/音高" style="font-size:11px;font-weight:700;width:auto;padding:0 8px">1x</button>
-      <div id="speed-card" style="display:none;position:absolute;bottom:48px;right:0;background:rgba(20,20,28,.94);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;z-index:60;min-width:180px;backdrop-filter:blur(16px)">
+      <div id="speed-card" style="display:none;position:fixed;bottom:80px;right:20px;background:rgba(20,20,28,.94);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;z-index:60;min-width:180px;backdrop-filter:blur(16px)">
         <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px">播放速度 <span id="speed-val">1.0x</span></div>
         <input id="speed-slider" type="range" min="0.5" max="2" step="0.05" value="1" oninput="setPlaybackSpeed(this.value)" style="width:100%">
         <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:10px;margin-bottom:4px">音高 <span id="pitch-val">0</span></div>
-        <input id="pitch-slider" type="range" min="-6" max="6" step="0.5" value="0" oninput="setPitchShift(this.value)" style="width:100%">
-        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:12px;margin-bottom:6px">EQ 音效</div>
+        <input id="pitch-slider" type="range" min="-6" max="6" step="0.1" value="0" oninput="setPitchShift(this.value)" style="width:100%">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:10px;margin-bottom:6px">EQ 音效</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px" id="eq-presets">
           <button class="eq-btn" data-eq="flat" onclick="applyEQ('flat')" style="font-size:10px;padding:3px 8px;border:1px solid rgba(255,255,255,.15);border-radius:6px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer">关闭</button>
           <button class="eq-btn" data-eq="pop" onclick="applyEQ('pop')" style="font-size:10px;padding:3px 8px;border:1px solid rgba(255,255,255,.15);border-radius:6px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer">流行</button>
@@ -18916,8 +18916,11 @@ async function attemptAudioPlay(opts) {
         await audio.play();
       }
       await resumeAudioAnalysis();
-      // 上报播放历史
-      if (playQueue && playQueue[currentIdx]) uploadPlayHistory(playQueue[currentIdx]);
+      // 上报播放历史 + 记忆播放
+      if (playQueue && playQueue[currentIdx]) {
+        uploadPlayHistory(playQueue[currentIdx]);
+        saveLastPlayState();
+      }
       switchPlaybackVisualToEmily();
       playing = true; setPlayIcon(true);
     if (opts.fade !== false) startPlaybackFadeIn();
@@ -27377,6 +27380,8 @@ function animate() {
 animate();
 // 自动进入
 setTimeout(function(){ splashAnimating = false; dismissSplash(); }, 2000);
+// 延迟恢复上次播放
+setTimeout(function(){ restoreLastPlay(); }, 3500);
 // 网易云热评
 function fetchHotComment(){
   apiJson('/api/hotcomment?t=' + Date.now()).then(function(r){
@@ -27399,23 +27404,51 @@ function setPlaybackSpeed(val) {
   val = parseFloat(val) || 1;
   window._playbackSpeed = val;
   try {
-    var audios = document.querySelectorAll('audio');
-    audios.forEach(function(a){ a.playbackRate = val; a.preservesPitch = window._pitchShift === 0; });
-  } catch(e) {}
+    var pitch = window._pitchShift || 0;
+    var rate = pitch === 0 ? val : val * Math.pow(2, pitch / 12);
+    if (typeof audio !== 'undefined' && audio) { audio.playbackRate = rate; audio.preservesPitch = pitch === 0; }
+    document.querySelectorAll('audio').forEach(function(a){ a.playbackRate = rate; a.preservesPitch = pitch === 0; });
+  } catch(e) { console.warn('[speed]', e); }
   localStorage.setItem('mineradio-speed', val);
   var btn = document.getElementById('speed-btn'); if (btn) btn.textContent = val + 'x';
   var lbl = document.getElementById('speed-val'); if (lbl) lbl.textContent = val.toFixed(2) + 'x';
   var sl = document.getElementById('speed-slider'); if (sl) sl.value = val;
 }
 function setPitchShift(val) {
-  val = parseInt(val) || 0;
+  val = parseFloat(val) || 0;
   window._pitchShift = val;
+  var speed = window._playbackSpeed || 1;
+  var rate = val === 0 ? speed : speed * Math.pow(2, val / 12);
   try {
-    var audios = document.querySelectorAll('audio');
-    audios.forEach(function(a){ a.preservesPitch = val === 0; if (val !== 0) a.playbackRate = window._playbackSpeed || 1; });
+    if (typeof audio !== 'undefined' && audio) { audio.preservesPitch = false; audio.playbackRate = rate; }
+    document.querySelectorAll('audio').forEach(function(a){ a.preservesPitch = false; a.playbackRate = rate; });
   } catch(e) {}
-  var lbl = document.getElementById('pitch-val'); if (lbl) lbl.textContent = val >= 0 ? ('+' + val) : val;
+  var lbl = document.getElementById('pitch-val'); if (lbl) lbl.textContent = val >= 0 ? ('+' + val) : String(val);
 }
+// ========== 记忆播放 ==========
+function saveLastPlayState() {
+  var song = playQueue && playQueue.length > currentIdx && currentIdx >= 0 ? playQueue[currentIdx] : null;
+  if (!song) return;
+  try {
+    var state = { hash: song.hash || song.id, name: song.name, artist: song.artist, source: song.source || song.provider, idx: currentIdx, time: Date.now() };
+    localStorage.setItem('mineradio-last-play', JSON.stringify(state));
+  } catch(e) {}
+}
+function restoreLastPlay() {
+  try {
+    var raw = localStorage.getItem('mineradio-last-play');
+    if (!raw) return;
+    var state = JSON.parse(raw);
+    if (!state.hash && !state.name) return;
+    // 搜索上次歌曲并播放
+    if (state.hash) {
+      runHomeSearch(state.name || '');
+      showToast('上次播放：' + (state.name || state.hash));
+    }
+  } catch(e) {}
+}
+// 切歌时保存
+var _origPlayQueueAt = playQueueAt;
 // ========== 播放历史上报 + 评论 ==========
 function clearCommentHotCard() {
   _commentCache = [];
@@ -27553,21 +27586,23 @@ function initEQ() {
 }
 function applyEQ(preset) {
   initEQ();
-  if (!eqAudioCtx) return;
+  if (!eqAudioCtx) { console.warn('[EQ] no audio context'); return; }
   var gains = EQ_PRESETS[preset] || EQ_PRESETS.flat;
   eqActive = preset;
-  // 断开旧滤波器
   eqFilters.forEach(function(f){ try { f.disconnect(); } catch(e){} });
   eqFilters = [];
   if (preset === 'flat') {
-    try { if (eqSource) eqSource.disconnect(); eqSource = null; } catch(e) {}
+    try { if (eqSource) { eqSource.disconnect(); eqSource = null; } } catch(e) {}
+    try { var ael = document.querySelector('audio') || (typeof audio !== 'undefined' ? audio : null); if (ael) ael.crossOrigin = 'anonymous'; } catch(e) {}
   } else {
-    // 创建滤波器链
-    var audioEl = document.querySelector('audio');
-    if (audioEl && !eqSource) {
-      try { eqSource = eqAudioCtx.createMediaElementSource(audioEl); } catch(e) { return; }
+    var audioEl = document.querySelector('audio') || (typeof audio !== 'undefined' ? audio : null);
+    if (!audioEl) { console.warn('[EQ] no audio element'); return; }
+    if (!eqSource) {
+      try { eqSource = eqAudioCtx.createMediaElementSource(audioEl); } catch(e) {
+        console.warn('[EQ] createMediaElementSource failed (may already be connected):', e.message);
+        return;
+      }
     }
-    if (!eqSource) return;
     var prev = eqSource;
     EQ_FREQS.forEach(function(freq, i) {
       var filter = eqAudioCtx.createBiquadFilter();
@@ -27581,7 +27616,6 @@ function applyEQ(preset) {
     });
     prev.connect(eqAudioCtx.destination);
   }
-  // 高亮按钮
   document.querySelectorAll('.eq-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-eq') === preset); });
 }
 // 恢复
