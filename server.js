@@ -4770,8 +4770,25 @@ const server = http.createServer(async (req, res) => {
         encryptType: 'android', cookie: kgCookieObj(),
       });
       const data = (r && r.data && r.data.data) || {};
-      const tracks = (data.info || data.list || data.songs || []).map(mapKGSong);
-      sendJSON(res, { provider: 'kugou', tracks, total: data.count || data.total || tracks.length });
+      var tracks = (data.info || data.list || data.songs || []).map(mapKGSong);
+      var total = data.count || data.total || tracks.length;
+      // 酷狗公开API每页最多300首，自动翻页获取全部
+      if (tracks.length < total && tracks.length >= 300 && pagesize > 300) {
+        var totalPages = Math.ceil(total / 300);
+        for (var pg = 2; pg <= totalPages; pg++) {
+          try {
+            var nextR = await kugouRequest({
+              url: '/pubsongs/v2/get_other_list_file_nofilt', method: 'GET',
+              params: { global_collection_id: id, page: pg, pagesize: 300, area_code: 1, plat: 1, type: 1, mode: 1, personal_switch: 1, begin_idx: (pg - 1) * 300, extend_fields: 'abtags,hot_cmt,popularization' },
+              encryptType: 'android', cookie: kgCookieObj(),
+            });
+            var nextData = (nextR && nextR.data && nextR.data.data) || {};
+            var nextTracks = (nextData.info || nextData.list || nextData.songs || []).map(mapKGSong);
+            tracks = tracks.concat(nextTracks);
+          } catch(e) { break; }
+        }
+      }
+      sendJSON(res, { provider: 'kugou', tracks, total: total });
     } catch (err) {
       console.error('[KGTrackAll]', err);
       sendJSON(res, { provider: 'kugou', error: err.message, tracks: [] }, 500);
