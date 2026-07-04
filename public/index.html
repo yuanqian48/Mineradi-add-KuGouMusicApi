@@ -2872,8 +2872,8 @@ var queuePanelDirty = false;
 var PLAYLIST_PANEL_BATCH_SIZE = 60;
 var playlistPanelRenderLimit = PLAYLIST_PANEL_BATCH_SIZE;
 var playlistPanelLazyBound = false;
-var PLAYLIST_DETAIL_INITIAL_RENDER = 200;
-var PLAYLIST_DETAIL_BATCH_SIZE = 200;
+var PLAYLIST_DETAIL_INITIAL_RENDER = 600;
+var PLAYLIST_DETAIL_BATCH_SIZE = 600;
 var smoothWheelScrollBound = false;
 var coverProcessToken = 0, aiDepthPipeline = null, aiDepthReady = false, aiDepthBusy = false, aiDepthFailUntil = 0;
 var coverDepthCache = Object.create(null), coverDepthCacheKeys = [];
@@ -14499,7 +14499,7 @@ function makeContentListManager() {
         r = podcastCollectionKey
           ? await apiJson('/api/podcast/my/items?key=' + encodeURIComponent(podcastCollectionKey) + '&limit=36')
           : (kgPlaylistId
-            ? await apiJson('/api/kugou/playlist/tracks?id=' + encodeURIComponent(kgPlaylistId))
+            ? await apiJson('/api/kugou/playlist/tracks?pagesize=1000&id=' + encodeURIComponent(kgPlaylistId))
             : (qqPlaylistId
               ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(qqPlaylistId))
               : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistId))));
@@ -19848,7 +19848,7 @@ async function openPlaylistPanelDetail(provider, pid, title) {
     var r;
     if (provider === 'kugou') {
       var kgListid = pl && pl.listid ? '&listid=' + encodeURIComponent(pl.listid) : '';
-      r = await apiJson('/api/kugou/playlist/tracks?id=' + encodeURIComponent(pid) + kgListid);
+      r = await apiJson('/api/kugou/playlist/tracks?pagesize=1000&id=' + encodeURIComponent(pid) + kgListid);
     } else if (provider === 'qq') {
       r = await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(pid));
     } else {
@@ -20184,7 +20184,7 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
       // 从 userPlaylists 中查找 listid（兼容 kg: 前缀和不带前缀的 id）
       var kgPl = userPlaylists.find(function(p){ return p && p.provider === 'kugou' && (String(p.id) === idStr || String(p.id) === kgPlaylistId); });
       var kgListidParam = kgPl && kgPl.listid ? '&listid=' + encodeURIComponent(kgPl.listid) : '';
-      r = await apiJson('/api/kugou/playlist/tracks?id=' + encodeURIComponent(kgPlaylistId) + kgListidParam);
+      r = await apiJson('/api/kugou/playlist/tracks?pagesize=1000&id=' + encodeURIComponent(kgPlaylistId) + kgListidParam);
     } else if (qqPlaylistId) {
       r = await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(qqPlaylistId));
     } else {
