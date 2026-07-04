@@ -2410,12 +2410,13 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     </filter>
   </defs>
 </svg>
-<div id="comment-panel" style="display:none;position:fixed;right:16px;top:80px;bottom:120px;z-index:55;width:300px;background:rgba(18,18,26,.92);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px;overflow-y:auto;backdrop-filter:blur(16px)">
+<div id="comment-hot-card" style="position:fixed;left:50%;bottom:116px;transform:translateX(-50%);z-index:56;width:calc(100% - 40px);max-width:480px;height:52px;overflow:hidden;padding:0 16px;border-radius:13px;border:1px solid rgba(255,255,255,.08);background:rgba(18,18,26,0.42);backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);box-shadow:0 6px 30px rgba(0,0,0,0.14),inset 0 1px 0 rgba(255,255,255,0.05);font-size:12px;color:rgba(255,255,255,.72);line-height:52px;text-align:center;display:none;pointer-events:none;white-space:nowrap;text-overflow:ellipsis"></div>
+<div id="comment-panel" style="display:none;position:fixed;right:16px;top:80px;bottom:150px;z-index:55;width:300px;background:rgba(18,18,26,0.4);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;overflow-y:auto;backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);box-shadow:0 8px 40px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.04);scrollbar-width:none;-ms-overflow-style:none">
+<style>#comment-panel::-webkit-scrollbar{display:none}</style>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <span style="font-size:14px;font-weight:700;color:#fff">歌曲评论</span>
     <button onclick="document.getElementById('comment-panel').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:18px">&times;</button>
   </div>
-  <div id="comment-hot" style="margin-bottom:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;color:rgba(255,255,255,.8);line-height:1.6"></div>
   <div id="comment-list" style="font-size:12px;color:rgba(255,255,255,.7)"></div>
   <div id="comment-loading" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">加载中...</div>
 </div>
@@ -17914,7 +17915,7 @@ async function fetchMusicSearchResults(q, mode) {
   var kgSongs = result[2] && result[2].status === 'fulfilled' ? ((result[2].value && result[2].value.songs) || []) : [];
   if (result[1].status === 'rejected') console.warn('QQ search failed:', result[1].reason);
   if (result[2] && result[2].status === 'rejected') console.warn('KG search failed:', result[2].reason);
-  return mergeSongSearchResults(neteaseSongs, qqSongs.concat(kgSongs), 18, q);
+  return mergeSongSearchResults(neteaseSongs, qqSongs.concat(kgSongs), 30, q);
 }
 function renderSongSearchResults(songs) {
   playlist = songs || [];
@@ -18916,7 +18917,7 @@ async function attemptAudioPlay(opts) {
       }
       await resumeAudioAnalysis();
       // 上报播放历史
-      uploadPlayHistory(song);
+      if (playQueue && playQueue[currentIdx]) uploadPlayHistory(playQueue[currentIdx]);
       switchPlaybackVisualToEmily();
       playing = true; setPlayIcon(true);
     if (opts.fade !== false) startPlaybackFadeIn();
@@ -19305,6 +19306,9 @@ async function fetchLyric(songOrId, token) {
     }
     var r = await apiJson(endpoint);
     if (token !== trackSwitchToken) return;
+    // 清除旧热评，加载新评论
+    clearCommentHotCard();
+    setTimeout(function(){ if (provider === 'kugou' && trackSwitchToken === token) loadComments(); }, 500);
     // 酷狗歌词翻译
     if (provider === 'kugou') {
       apiJson('/api/kugou/lyric/trans?hash=' + encodeURIComponent(song.hash || song.id || '')).then(function(tr){
@@ -26599,20 +26603,6 @@ document.addEventListener('DOMContentLoaded', function(){
     if (splashReadyToEnter) dismissSplash();
   }
   s.addEventListener('click', requestSplashEnter);
-  document.addEventListener('keydown', function(e){
-    if (!document.body.classList.contains('splash-active')) return;
-    if (e.key === 'Enter' || e.code === 'Space') {
-      e.preventDefault();
-      requestSplashEnter();
-    }
-  });
-  if (reduceSplashMotion) {
-    s.classList.add('reduce-motion');
-    splashTimer = setTimeout(function(){ dismissSplash(); }, 1500);
-    return;
-  }
-  playMineradioIntroSound();
-  splashTimer = setTimeout(function(){ dismissSplash(); }, 3000);
 });
 
 var desktopOverlayPushState = {
@@ -27385,6 +27375,8 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+// 自动进入
+setTimeout(function(){ splashAnimating = false; dismissSplash(); }, 2000);
 // 网易云热评
 function fetchHotComment(){
   apiJson('/api/hotcomment?t=' + Date.now()).then(function(r){
@@ -27425,9 +27417,15 @@ function setPitchShift(val) {
   var lbl = document.getElementById('pitch-val'); if (lbl) lbl.textContent = val >= 0 ? ('+' + val) : val;
 }
 // ========== 播放历史上报 + 评论 ==========
+function clearCommentHotCard() {
+  _commentCache = [];
+  if (_commentHotTimer) { clearTimeout(_commentHotTimer); _commentHotTimer = null; }
+  var el = document.getElementById('comment-hot-card');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
 function uploadPlayHistory(song) {
-  if (!song || !song.id) return;
-  var mxid = song.id || song.album_audio_id || '';
+  if (!song) return;
+  var mxid = song.mixsongid || song.album_audio_id || song.id || '';
   if (!mxid || !/^\d+$/.test(String(mxid))) return;
   apiJson('/api/kugou/playhistory/upload?mxid=' + encodeURIComponent(mxid)).catch(function(){});
 }
@@ -27442,6 +27440,13 @@ function autoUploadHistory() {
 setInterval(autoUploadHistory, 30000);
 // 评论面板 + 热评轮播
 var _commentCache = [];
+// 点击外部关闭评论区
+document.addEventListener('click', function(e){
+  var p = document.getElementById('comment-panel');
+  if (p && p.style.display !== 'none' && !p.contains(e.target) && e.target.id !== 'cmt-btn' && !(e.target.closest && e.target.closest('#cmt-btn'))) {
+    p.style.display = 'none';
+  }
+});
 function toggleCommentPanel() {
   var panel = document.getElementById('comment-panel');
   if (!panel) return;
@@ -27451,15 +27456,23 @@ function toggleCommentPanel() {
 }
 function loadComments() {
   var song = typeof currentCoverSong === 'function' ? currentCoverSong() : null;
-  if (!song || !song.id) { document.getElementById('comment-loading').textContent = '暂无歌曲'; return; }
+  if (!song) { document.getElementById('comment-loading').textContent = '暂无歌曲'; return; }
   document.getElementById('comment-loading').textContent = '加载中...';
-  document.getElementById('comment-hot').innerHTML = '';
   document.getElementById('comment-list').innerHTML = '';
-  var id = song.album_audio_id || song.id || '';
+  var id = song.mixsongid || song.album_audio_id || '';
+  if (!id || !/^\d+$/.test(String(id))) {
+    document.getElementById('comment-loading').textContent = '无法获取评论（缺少ID）';
+    document.getElementById('comment-hot-card').style.display = 'none';
+    return;
+  }
   apiJson('/api/kugou/comment/music?mixsongid=' + encodeURIComponent(id) + '&pagesize=30').then(function(r){
     _commentCache = (r && r.list) || [];
-    _commentHotIdx = 1;
-    renderCommentHot();
+    _commentHotIdx = 0;
+    // 热评卡片
+    if (_commentCache.length) {
+      document.getElementById('comment-hot-card').style.display = 'block';
+      renderCommentHot();
+    } else { document.getElementById('comment-hot-card').style.display = 'none'; }
     var listHtml = _commentCache.map(function(c){
       return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)"><div style="color:rgba(255,255,255,.8)">' + escHtml(c.content || c.msg || '') + '</div><div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:4px">' + escHtml(c.author_name || c.user_name || '') + ' · ' + (c.like_count || c.likenum || 0) + '赞</div></div>';
     }).join('');
@@ -27474,7 +27487,11 @@ function renderCommentHot() {
   var c = _commentCache[_commentHotIdx % _commentCache.length];
   _commentHotIdx++;
   var likes = (c.like_count || c.likenum || 0);
-  document.getElementById('comment-hot').innerHTML = '<div style="color:#00f5d4;font-size:10px;margin-bottom:4px">热评轮播</div>' + escHtml(c.content || c.msg || '') + '<div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:6px">—— ' + escHtml(c.author_name || c.user_name || '') + (likes ? ' · ' + likes + '赞' : '') + '</div>';
+  var el = document.getElementById('comment-hot-card');
+  if (!el) return;
+  var text = (c.content || c.msg || '');
+  if (text.length > 50) text = text.substring(0, 50) + '...';
+  el.innerHTML = escHtml(text) + ' <span style="color:rgba(255,255,255,.3);font-size:10px">—— ' + escHtml(c.author_name || c.user_name || '') + (likes ? ' · ' + likes + '赞' : '') + '</span>';
   if (_commentHotTimer) clearTimeout(_commentHotTimer);
   _commentHotTimer = setTimeout(renderCommentHot, 5000);
 }
@@ -27576,19 +27593,20 @@ function applyEQ(preset) {
 // ========== 多行歌词 ==========
 var multiLyricEnabled = false;
 function getCurrentLyricLines() {
-  var allLines = [];
-  var activeIdx = 0;
-  var source = (typeof lyricsLines !== 'undefined' && lyricsLines.length) ? lyricsLines : ((typeof originalLyricsState !== 'undefined' && originalLyricsState.lines) ? originalLyricsState.lines : []);
-  allLines = source.map(function(l){ return l.text || ''; });
-  }
-  if (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.lineIdx != null) {
-    activeIdx = Math.max(0, stageLyrics.lineIdx - 1);
-  }
-  var prevCount = 2, nextCount = 2;
-  var prev = [], next = [];
-  for (var i = Math.max(0, activeIdx - prevCount); i < activeIdx; i++) { if (allLines[i] && allLines[i].trim()) prev.push(allLines[i]); }
-  for (var j = activeIdx + 1; j <= Math.min(allLines.length - 1, activeIdx + nextCount); j++) { if (allLines[j] && allLines[j].trim()) next.push(allLines[j]); }
-  return { prev: prev, current: allLines[activeIdx] || '', next: next, currentIdx: activeIdx };
+  try {
+    var allLines = [];
+    var activeIdx = 0;
+    if (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.lineIdx != null) {
+      activeIdx = Math.max(0, (stageLyrics.lineIdx || 1) - 1);
+    }
+    if (typeof originalLyricsState !== 'undefined' && originalLyricsState && originalLyricsState.lines) {
+      allLines = originalLyricsState.lines.map(function(l){ return (l && l.text) || ''; });
+    }
+    var prev = [], next = [];
+    for (var i = Math.max(0, activeIdx - 2); i < activeIdx; i++) { if (allLines[i] && allLines[i].trim()) prev.push(allLines[i]); }
+    for (var j = activeIdx + 1; j <= Math.min(allLines.length - 1, activeIdx + 2); j++) { if (allLines[j] && allLines[j].trim()) next.push(allLines[j]); }
+    return { prev: prev, current: allLines[activeIdx] || '', next: next, currentIdx: activeIdx };
+  } catch(e) { return { prev: [], current: '', next: [], currentIdx: 0 }; }
 }
 function toggleMultiLyric() {
   multiLyricEnabled = !multiLyricEnabled;

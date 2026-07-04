@@ -3657,6 +3657,8 @@ function mapKGSong(item) {
     hash: (item.FileHash || item.hash || '').toLowerCase(),
     duration: item.Duration || item.duration || item.time || 0,
     cover: (item.Image || item.cover || item.img || '').replace('{size}', '400'),
+    mixsongid: item.MixSongID || item.mixsongid || item.album_audio_id || '',
+    album_audio_id: item.album_audio_id || item.MixSongID || item.mixsongid || '',
     provider: 'kugou',
     source: 'kugou',
   };
@@ -4884,6 +4886,8 @@ const server = http.createServer(async (req, res) => {
           cover: '',
           duration: s.duration || s.timelen || 0,
           provider: 'kugou', source: 'kugou', type: 'kugou',
+          mixsongid: s.mixsongid || s.album_audio_id || '',
+          album_audio_id: s.album_audio_id || s.mixsongid || '',
         };
       });
       sendJSON(res, { provider: 'kugou', songs: songs, fm_info: body.data || {} });
