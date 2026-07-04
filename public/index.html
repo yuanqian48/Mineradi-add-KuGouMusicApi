@@ -16102,6 +16102,7 @@ function updateEmptyHomeVisibility(opts) {
   var show = shouldShowEmptyHome();
   emptyHomeActive = show;
   document.body.classList.toggle('empty-home-active', show);
+  if (show) hideCommentHotCard();
   if (!show) setHomeControlsLocked(false);
   if (show) activateHomeWallpaperPreview();
   else deactivateHomeWallpaperPreview(false);
@@ -16327,6 +16328,7 @@ function goHome() {
   homeSuppressed = false;
   homeForcedOpen = true;
   setHomeControlsLocked(true);
+  hideCommentHotCard();
   if (shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent()) safeShelfCloseContent('open-empty-home');
   if (typeof setShelfPinnedOpen === 'function') setShelfPinnedOpen(false, true);
   togglePlaylistPanel(false);
@@ -16346,6 +16348,8 @@ function dismissHomePage(opts) {
   updateEmptyHomeVisibility({ forceLoad: false });
   setPeek(document.getElementById('search-area'), false, 'search');
   if (typeof setFocusZone === 'function') setFocusZone(null, true);
+  // 退出home重新显示热评
+  showCommentHotCard();
 }
 function isPointInsideRectWithPad(x, y, rect, pad) {
   if (!rect || rect.width <= 0 || rect.height <= 0) return false;
@@ -27427,10 +27431,10 @@ function setPitchShift(val) {
 }
 // ========== 记忆播放 ==========
 function saveLastPlayState() {
-  var song = playQueue && playQueue.length > currentIdx && currentIdx >= 0 ? playQueue[currentIdx] : null;
-  if (!song) return;
+  if (!playQueue || !playQueue.length || currentIdx < 0) return;
   try {
-    var state = { hash: song.hash || song.id, name: song.name, artist: song.artist, source: song.source || song.provider, idx: currentIdx, time: Date.now() };
+    var queue = playQueue.map(function(s){ return { id:s.id,name:s.name,artist:s.artist,hash:s.hash,cover:s.cover,album:s.album,albumId:s.albumId,duration:s.duration,provider:s.provider,source:s.source,type:s.type,mixsongid:s.mixsongid,album_audio_id:s.album_audio_id}; });
+    var state = { queue: queue, idx: currentIdx, pos: typeof audio !== 'undefined' && audio ? audio.currentTime : 0, time: Date.now() };
     localStorage.setItem('mineradio-last-play', JSON.stringify(state));
   } catch(e) {}
 }
@@ -27439,16 +27443,13 @@ function restoreLastPlay() {
     var raw = localStorage.getItem('mineradio-last-play');
     if (!raw) return;
     var state = JSON.parse(raw);
-    if (!state.hash && !state.name) return;
-    // 搜索上次歌曲并播放
-    if (state.hash) {
-      runHomeSearch(state.name || '');
-      showToast('上次播放：' + (state.name || state.hash));
-    }
+    if (!state.queue || !state.queue.length) return;
+    playQueue = state.queue;
+    currentIdx = Math.min(state.idx || 0, playQueue.length - 1);
+    showToast('恢复上次播放：' + (playQueue[currentIdx].name || ''));
+    playQueueAt(currentIdx, { fade: true, silent: true });
   } catch(e) {}
 }
-// 切歌时保存
-var _origPlayQueueAt = playQueueAt;
 // ========== 播放历史上报 + 评论 ==========
 function clearCommentHotCard() {
   _commentCache = [];
@@ -27471,10 +27472,10 @@ function clearCommentHotCard() {
   hideCommentHotCard();
 }
 setInterval(function(){
+  var onHome = document.body.classList.contains('empty-home-active') || homeForcedOpen;
   var hasSong = !!(playQueue && playQueue.length > 0 && currentIdx >= 0 && playQueue[currentIdx]);
-  var el = document.getElementById('comment-hot-card');
-  if (playing && hasSong && _commentCache.length) showCommentHotCard();
-  if (!playing || !hasSong) hideCommentHotCard();
+  if (playing && hasSong && _commentCache.length && !onHome) showCommentHotCard();
+  if (!playing || !hasSong || onHome) hideCommentHotCard();
 }, 1000);
 function uploadPlayHistory(song) {
   if (!song) return;

@@ -1995,9 +1995,25 @@ async function createWindow() {
     event.preventDefault();
     mainWindow.hide();
   });
-  // 关闭窗口时也隐藏到托盘
+  // 关闭窗口时弹出选择：最小化到托盘 / 退出软件
   mainWindow.on('close', function(event){
-    if (!app.isQuitting) { event.preventDefault(); mainWindow.hide(); }
+    if (app.isQuitting) return;
+    event.preventDefault();
+    dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      buttons: ['最小化到托盘', '退出 Mineradio', '取消'],
+      defaultId: 0,
+      title: 'Mineradio',
+      message: '关闭窗口时您希望？',
+      detail: '选择"最小化到托盘"后可通过托盘图标恢复窗口，音乐不会中断。'
+    }).then(function(result){
+      if (result.response === 0) {
+        mainWindow.hide();
+      } else if (result.response === 1) {
+        app.isQuitting = true;
+        app.quit();
+      }
+    });
   });
   app.on('before-quit', function(){ app.isQuitting = true; });
 }
