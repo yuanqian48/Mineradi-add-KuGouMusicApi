@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog, Tray, Menu, nativeImage } = require('electron');
 const net = require('net');
 const path = require('path');
 const fs = require('fs');
@@ -1975,6 +1975,31 @@ async function createWindow() {
   });
 
   await mainWindow.loadURL(`http://127.0.0.1:${port}`);
+
+  // 系统托盘：最小化到托盘不中断播放
+  var trayIcon = nativeImage.createFromPath(APP_ICON_ICO).resize({ width: 16, height: 16 });
+  var tray = new Tray(trayIcon);
+  var contextMenu = Menu.buildFromTemplate([
+    { label: '显示 Mineradio', click: function(){ mainWindow.show(); mainWindow.focus(); } },
+    { label: '暂停/播放', click: function(){ mainWindow.webContents.send('mineradio-global-hotkey', { action: 'playPause' }); } },
+    { label: '下一首', click: function(){ mainWindow.webContents.send('mineradio-global-hotkey', { action: 'next' }); } },
+    { label: '上一首', click: function(){ mainWindow.webContents.send('mineradio-global-hotkey', { action: 'prev' }); } },
+    { type: 'separator' },
+    { label: '退出 Mineradio', click: function(){ app.quit(); } }
+  ]);
+  tray.setToolTip('Mineradio');
+  tray.setContextMenu(contextMenu);
+  tray.on('click', function(){ mainWindow.show(); mainWindow.focus(); });
+  // 最小化到托盘
+  mainWindow.on('minimize', function(event){
+    event.preventDefault();
+    mainWindow.hide();
+  });
+  // 关闭窗口时也隐藏到托盘
+  mainWindow.on('close', function(event){
+    if (!app.isQuitting) { event.preventDefault(); mainWindow.hide(); }
+  });
+  app.on('before-quit', function(){ app.isQuitting = true; });
 }
 
 app.setName(APP_NAME);
