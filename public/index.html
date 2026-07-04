@@ -2410,6 +2410,15 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     </filter>
   </defs>
 </svg>
+<div id="comment-panel" style="display:none;position:fixed;right:16px;top:80px;bottom:120px;z-index:55;width:300px;background:rgba(18,18,26,.92);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px;overflow-y:auto;backdrop-filter:blur(16px)">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <span style="font-size:14px;font-weight:700;color:#fff">歌曲评论</span>
+    <button onclick="document.getElementById('comment-panel').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:18px">&times;</button>
+  </div>
+  <div id="comment-hot" style="margin-bottom:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;color:rgba(255,255,255,.8);line-height:1.6"></div>
+  <div id="comment-list" style="font-size:12px;color:rgba(255,255,255,.7)"></div>
+  <div id="comment-loading" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">加载中...</div>
+</div>
 <div id="multi-lyric-overlay" style="display:none;position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:50;max-width:260px;text-align:right;pointer-events:none">
   <div id="multi-lyric-prev" style="font-size:12px;color:rgba(255,255,255,.25);line-height:1.8;transition:all .3s"></div>
   <div id="multi-lyric-curr" style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin:8px 0;transition:all .3s"></div>
@@ -2464,6 +2473,7 @@ body.perf-mode .home-card::before,body.perf-mode .home-card::after{display:none}
       <button id="heart-btn" class="ctrl-btn" onclick="toggleLikeCurrent()" title="红心喜欢"><svg class="heart-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.45c-.32 0-.62-.12-.86-.34l-1.23-1.12C5.54 16.03 2.25 13.05 2.25 8.9 2.25 5.48 4.88 2.9 8.28 2.9c1.7 0 3.35.72 4.52 1.96C13.97 3.62 15.62 2.9 17.32 2.9c3.4 0 6.03 2.58 6.03 6 0 4.15-3.29 7.13-7.66 11.09l-1.23 1.12c-.24.22-.54.34-.86.34z"/></svg></button>
       <button id="collect-btn" class="ctrl-btn" onclick="openCollectModalForCurrent()" title="收藏到歌单"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
       <button id="mlrc-btn" class="ctrl-btn" onclick="toggleMultiLyric()" title="多行歌词"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="12" y2="16"/></svg></button>
+      <button id="cmt-btn" class="ctrl-btn" onclick="toggleCommentPanel()" title="歌曲评论"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
       <button id="speed-btn" class="ctrl-btn" onclick="toggleSpeedCard()" title="倍速/音高" style="font-size:11px;font-weight:700;width:auto;padding:0 8px">1x</button>
       <div id="speed-card" style="display:none;position:absolute;bottom:48px;right:0;background:rgba(20,20,28,.94);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;z-index:60;min-width:180px;backdrop-filter:blur(16px)">
         <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px">播放速度 <span id="speed-val">1.0x</span></div>
@@ -18905,6 +18915,8 @@ async function attemptAudioPlay(opts) {
         await audio.play();
       }
       await resumeAudioAnalysis();
+      // 上报播放历史
+      uploadPlayHistory(song);
       switchPlaybackVisualToEmily();
       playing = true; setPlayIcon(true);
     if (opts.fade !== false) startPlaybackFadeIn();
@@ -27413,6 +27425,50 @@ function setPitchShift(val) {
     audios.forEach(function(a){ a.preservesPitch = val === 0; if (val !== 0) a.playbackRate = window._playbackSpeed || 1; });
   } catch(e) {}
   var lbl = document.getElementById('pitch-val'); if (lbl) lbl.textContent = val >= 0 ? ('+' + val) : val;
+}
+// ========== 播放历史上报 + 评论 ==========
+function uploadPlayHistory(song) {
+  if (!song || !song.id) return;
+  var mxid = song.id || song.album_audio_id || '';
+  if (!mxid || !/^\d+$/.test(String(mxid))) return;
+  apiJson('/api/kugou/playhistory/upload?mxid=' + encodeURIComponent(mxid)).catch(function(){});
+}
+var _lastHistoryUpload = 0;
+function autoUploadHistory() {
+  var song = currentCoverSong ? currentCoverSong() : null;
+  if (song && song.provider === 'kugou' && song.id !== _lastHistoryUpload) {
+    _lastHistoryUpload = song.id;
+    uploadPlayHistory(song);
+  }
+}
+setInterval(autoUploadHistory, 30000);
+// 评论面板
+function toggleCommentPanel() {
+  var panel = document.getElementById('comment-panel');
+  if (!panel) return;
+  var show = panel.style.display === 'none';
+  panel.style.display = show ? 'block' : 'none';
+  if (show) loadComments();
+}
+function loadComments() {
+  var song = typeof currentCoverSong === 'function' ? currentCoverSong() : null;
+  if (!song || !song.id) { document.getElementById('comment-loading').textContent = '暂无歌曲'; return; }
+  document.getElementById('comment-loading').textContent = '加载中...';
+  document.getElementById('comment-hot').innerHTML = '';
+  document.getElementById('comment-list').innerHTML = '';
+  var id = song.album_audio_id || song.id || '';
+  apiJson('/api/kugou/comment/music?mixsongid=' + encodeURIComponent(id) + '&pagesize=20').then(function(r){
+    var comments = (r && r.list) || [];
+    var hotCmt = comments.find(function(c){ return c && c.is_hot; }) || comments[0];
+    if (hotCmt) {
+      document.getElementById('comment-hot').innerHTML = '<div style="color:#00f5d4;font-size:10px;margin-bottom:4px">热评</div>' + escHtml(hotCmt.content || hotCmt.msg || '') + '<div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:6px">—— ' + escHtml(hotCmt.author_name || hotCmt.user_name || '') + '</div>';
+    }
+    var listHtml = comments.slice(hotCmt ? 1 : 0).map(function(c){
+      return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)"><div style="color:rgba(255,255,255,.8)">' + escHtml(c.content || c.msg || '') + '</div><div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:4px">' + escHtml(c.author_name || c.user_name || '') + ' · ' + (c.like_count || c.likenum || 0) + '赞</div></div>';
+    }).join('');
+    document.getElementById('comment-list').innerHTML = listHtml || '<div style="color:rgba(255,255,255,.3)">暂无评论</div>';
+    document.getElementById('comment-loading').textContent = '';
+  }).catch(function(){ document.getElementById('comment-loading').textContent = '加载失败'; });
 }
 // ========== 性能模式 ==========
 function togglePerfMode() {

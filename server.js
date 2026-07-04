@@ -3957,6 +3957,53 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ---------- 酷狗：歌曲评论 ----------
+  if (pn === '/api/kugou/comment/music') {
+    try {
+      var cmMixsongid = url.searchParams.get('mixsongid') || url.searchParams.get('id') || '';
+      if (!cmMixsongid) { sendJSON(res, { ok: false, comments: [] }, 400); return; }
+      var cmR = await kugouRequest({
+        url: '/mcomment/v1/cmtlist', encryptType: 'android', method: 'POST',
+        params: { mixsongid: Number(cmMixsongid), need_show_image: 1, p: url.searchParams.get('page') || 1, pagesize: url.searchParams.get('pagesize') || 30, show_classify: url.searchParams.get('show_classify') || 1, show_hotword_list: url.searchParams.get('show_hotword_list') || 1, extdata: '0', code: 'fc4be23b4e972707f36b8a828a93ba8a' },
+        cookie: kgCookieObj(),
+      });
+      var cmBody = (cmR && cmR.data) || {};
+      sendJSON(res, { ok: true, ...cmBody });
+    } catch (err) { sendJSON(res, { ok: false, error: err.message, comments: [] }, 500); }
+    return;
+  }
+
+  // ---------- 酷狗：提交听歌历史 ----------
+  if (pn === '/api/kugou/playhistory/upload') {
+    try {
+      var phObj = kgCookieObj();
+      var phMxid = url.searchParams.get('mxid') || url.searchParams.get('id') || '';
+      if (!phMxid) { sendJSON(res, { ok: false }, 400); return; }
+      var phR = await kugouRequest({
+        url: '/playhistory/v1/upload_songs', encryptType: 'android', method: 'POST',
+        data: { songs: [{ mxid: Number(phMxid), op: 1, ot: Number(url.searchParams.get('ot') || Math.floor(Date.now() / 1000)), pc: Number(url.searchParams.get('pc') || 1) }], token: phObj.token || '', userid: Number(phObj.userid || 0) },
+        params: { plat: 3 }, cookie: phObj,
+      });
+      sendJSON(res, { ok: true, ...((phR && phR.data) || {}) });
+    } catch (err) { sendJSON(res, { ok: false, error: err.message }, 500); }
+    return;
+  }
+
+  // ---------- 酷狗：服务器时间 ----------
+  if (pn === '/api/kugou/server/now') {
+    try {
+      var snObj = kgCookieObj();
+      var snR = await kugouRequest({
+        url: '/v1/server_now', encryptType: 'android', method: 'POST',
+        data: { token: snObj.token || '', userid: Number(snObj.userid || 0) },
+        params: { plat: 3 }, cookie: snObj,
+        headers: { 'x-router': 'usercenter.kugou.com' },
+      });
+      sendJSON(res, { ok: true, ...((snR && snR.data) || {}) });
+    } catch (err) { sendJSON(res, { ok: false, error: err.message }, 500); }
+    return;
+  }
+
   // ---------- 天气（MSN Weather API）----------
   if (pn === '/api/weather') {
     try {
