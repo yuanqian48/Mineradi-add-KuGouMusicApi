@@ -21066,6 +21066,13 @@ function applyCustomBackground() {
     video.muted = true;
     video.loop = true;
     video.playsInline = true;
+    // 兜底：loop 属性失效时手动重播
+    video.onended = function() {
+      if (video.loop && video.getAttribute('src') === src) {
+        video.currentTime = 0;
+        video.play().catch(function(){});
+      }
+    };
     var p = video.play();
     if (p && p.catch) p.catch(function(){});
   }
