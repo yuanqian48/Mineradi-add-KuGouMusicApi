@@ -2448,9 +2448,13 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
       <button id="heart-btn" class="ctrl-btn" onclick="toggleLikeCurrent()" title="红心喜欢"><svg class="heart-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.45c-.32 0-.62-.12-.86-.34l-1.23-1.12C5.54 16.03 2.25 13.05 2.25 8.9 2.25 5.48 4.88 2.9 8.28 2.9c1.7 0 3.35.72 4.52 1.96C13.97 3.62 15.62 2.9 17.32 2.9c3.4 0 6.03 2.58 6.03 6 0 4.15-3.29 7.13-7.66 11.09l-1.23 1.12c-.24.22-.54.34-.86.34z"/></svg></button>
       <button id="collect-btn" class="ctrl-btn" onclick="openCollectModalForCurrent()" title="收藏到歌单"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
       <button id="mlrc-btn" class="ctrl-btn" onclick="toggleMultiLyric()" title="多行歌词"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="12" y2="16"/></svg></button>
-      <select id="speed-select" onchange="setPlaybackSpeed(this.value)" style="height:28px;padding:0 6px;border:1px solid rgba(255,255,255,.15);border-radius:6px;background:rgba(255,255,255,.06);color:#fff;font-size:11px;cursor:pointer;outline:none" title="播放速度">
-        <option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option>
-      </select>
+      <button id="speed-btn" class="ctrl-btn" onclick="toggleSpeedCard()" title="倍速/音高" style="font-size:11px;font-weight:700;width:auto;padding:0 8px">1x</button>
+      <div id="speed-card" style="display:none;position:absolute;bottom:48px;right:0;background:rgba(20,20,28,.94);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;z-index:60;min-width:180px;backdrop-filter:blur(16px)">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px">播放速度 <span id="speed-val">1.0x</span></div>
+        <input id="speed-slider" type="range" min="0.5" max="2" step="0.05" value="1" oninput="setPlaybackSpeed(this.value)" style="width:100%">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:10px;margin-bottom:4px">音高 <span id="pitch-val">0</span></div>
+        <input id="pitch-slider" type="range" min="-6" max="6" step="0.5" value="0" oninput="setPitchShift(this.value)" style="width:100%">
+      </div>
     </div>
     <div class="control-cluster transport">
     <button id="play-mode-btn" class="ctrl-btn" onclick="cyclePlayMode()" title="播放顺序"><svg id="play-mode-icon" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
@@ -27355,22 +27359,39 @@ function fetchHotComment(){
   }).catch(function(){});
 }
 // ========== 播放速度/音高 ==========
+function toggleSpeedCard() {
+  var card = document.getElementById('speed-card');
+  var btn = document.getElementById('speed-btn');
+  if (!card || !btn) return;
+  var show = card.style.display === 'none';
+  card.style.display = show ? 'block' : 'none';
+  btn.classList.toggle('active', show);
+}
 function setPlaybackSpeed(val) {
   val = parseFloat(val) || 1;
   window._playbackSpeed = val;
   try {
     var audios = document.querySelectorAll('audio');
-    audios.forEach(function(a){ a.playbackRate = val; });
+    audios.forEach(function(a){ a.playbackRate = val; a.preservesPitch = window._pitchShift === 0; });
   } catch(e) {}
   localStorage.setItem('mineradio-speed', val);
-  showToast('速度 ' + val + 'x');
+  var btn = document.getElementById('speed-btn'); if (btn) btn.textContent = val + 'x';
+  var lbl = document.getElementById('speed-val'); if (lbl) lbl.textContent = val.toFixed(2) + 'x';
+  var sl = document.getElementById('speed-slider'); if (sl) sl.value = val;
 }
-// 恢复上次速度
+function setPitchShift(val) {
+  val = parseInt(val) || 0;
+  window._pitchShift = val;
+  try {
+    var audios = document.querySelectorAll('audio');
+    audios.forEach(function(a){ a.preservesPitch = val === 0; if (val !== 0) a.playbackRate = window._playbackSpeed || 1; });
+  } catch(e) {}
+  var lbl = document.getElementById('pitch-val'); if (lbl) lbl.textContent = val >= 0 ? ('+' + val) : val;
+}
+// 恢复
 (function(){
   var saved = parseFloat(localStorage.getItem('mineradio-speed')) || 1;
   window._playbackSpeed = saved;
-  var sel = document.getElementById('speed-select');
-  if (sel) sel.value = String(saved);
   setPlaybackSpeed(saved);
 })();
 // ========== 多行歌词 ==========
