@@ -26608,16 +26608,11 @@ document.addEventListener('DOMContentLoaded', function(){
   });
   if (reduceSplashMotion) {
     s.classList.add('reduce-motion');
-    splashTimer = setTimeout(markSplashReadyToEnter, 900);
+    splashTimer = setTimeout(function(){ dismissSplash(); }, 1500);
     return;
   }
   playMineradioIntroSound();
-  splashTimer = setTimeout(markSplashReadyToEnter, 2500);
-  // 自动进入（仅在用户未手动操作时生效）
-  setTimeout(function(){
-    var s = document.getElementById('splash');
-    if (s && !s.classList.contains('hide') && !s.classList.contains('exiting')) dismissSplash();
-  }, 3500);
+  splashTimer = setTimeout(function(){ dismissSplash(); }, 3000);
 });
 
 var desktopOverlayPushState = {
