@@ -27442,7 +27442,8 @@ function autoUploadHistory() {
   }
 }
 setInterval(autoUploadHistory, 30000);
-// 评论面板
+// 评论面板 + 热评轮播
+var _commentCache = [];
 function toggleCommentPanel() {
   var panel = document.getElementById('comment-panel');
   if (!panel) return;
@@ -27457,18 +27458,27 @@ function loadComments() {
   document.getElementById('comment-hot').innerHTML = '';
   document.getElementById('comment-list').innerHTML = '';
   var id = song.album_audio_id || song.id || '';
-  apiJson('/api/kugou/comment/music?mixsongid=' + encodeURIComponent(id) + '&pagesize=20').then(function(r){
-    var comments = (r && r.list) || [];
-    var hotCmt = comments.find(function(c){ return c && c.is_hot; }) || comments[0];
-    if (hotCmt) {
-      document.getElementById('comment-hot').innerHTML = '<div style="color:#00f5d4;font-size:10px;margin-bottom:4px">热评</div>' + escHtml(hotCmt.content || hotCmt.msg || '') + '<div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:6px">—— ' + escHtml(hotCmt.author_name || hotCmt.user_name || '') + '</div>';
-    }
-    var listHtml = comments.slice(hotCmt ? 1 : 0).map(function(c){
+  apiJson('/api/kugou/comment/music?mixsongid=' + encodeURIComponent(id) + '&pagesize=30').then(function(r){
+    _commentCache = (r && r.list) || [];
+    _commentHotIdx = 1;
+    renderCommentHot();
+    var listHtml = _commentCache.map(function(c){
       return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)"><div style="color:rgba(255,255,255,.8)">' + escHtml(c.content || c.msg || '') + '</div><div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:4px">' + escHtml(c.author_name || c.user_name || '') + ' · ' + (c.like_count || c.likenum || 0) + '赞</div></div>';
     }).join('');
     document.getElementById('comment-list').innerHTML = listHtml || '<div style="color:rgba(255,255,255,.3)">暂无评论</div>';
     document.getElementById('comment-loading').textContent = '';
   }).catch(function(){ document.getElementById('comment-loading').textContent = '加载失败'; });
+}
+var _commentHotIdx = 0;
+var _commentHotTimer = null;
+function renderCommentHot() {
+  if (!_commentCache.length) return;
+  var c = _commentCache[_commentHotIdx % _commentCache.length];
+  _commentHotIdx++;
+  var likes = (c.like_count || c.likenum || 0);
+  document.getElementById('comment-hot').innerHTML = '<div style="color:#00f5d4;font-size:10px;margin-bottom:4px">热评轮播</div>' + escHtml(c.content || c.msg || '') + '<div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:6px">—— ' + escHtml(c.author_name || c.user_name || '') + (likes ? ' · ' + likes + '赞' : '') + '</div>';
+  if (_commentHotTimer) clearTimeout(_commentHotTimer);
+  _commentHotTimer = setTimeout(renderCommentHot, 5000);
 }
 // ========== 性能模式 ==========
 function togglePerfMode() {
