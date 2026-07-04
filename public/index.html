@@ -26567,7 +26567,9 @@ document.addEventListener('DOMContentLoaded', function(){
     return;
   }
   playMineradioIntroSound();
-  splashTimer = setTimeout(markSplashReadyToEnter, 5000);
+  splashTimer = setTimeout(markSplashReadyToEnter, 3000);
+  // 自动进入（3秒后自动消失）
+  splashTimer = setTimeout(function(){ dismissSplash(); }, 4000);
 });
 
 var desktopOverlayPushState = {
