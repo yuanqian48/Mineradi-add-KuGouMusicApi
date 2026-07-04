@@ -4576,6 +4576,55 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ---------- 酷狗：歌词翻译（KRC language 字段）----------
+  if (pn === '/api/kugou/lyric/trans') {
+    try {
+      var transHash = url.searchParams.get('hash') || '';
+      var transId = url.searchParams.get('id') || '';
+      var transKey = url.searchParams.get('accesskey') || '';
+      // 如果没有传 id/accesskey，先搜索
+      if ((!transId || !transKey) && transHash) {
+        var slr = await kugouRequest({
+          baseURL: 'https://lyrics.kugou.com', url: '/v1/search', method: 'GET',
+          params: { hash: transHash, appid: kugou.getAppid(), clientver: kugou.getClientver(), duration: 0, keyword: '', lrctxt: 1, man: 'no', album_audio_id: 0 },
+          encryptType: 'android', clearDefaultParams: true, notSign: true, cookie: kgCookieObj(),
+        });
+        var sc = ((slr && slr.data && slr.data.data) || {}).candidates || [];
+        if (sc.length) { transId = sc[0].id; transKey = sc[0].accesskey; }
+      }
+      if (!transId || !transKey) { sendJSON(res, { ok: false, error: 'NO_LYRIC' }); return; }
+      var tlr = await kugouRequest({
+        baseURL: 'https://lyrics.kugou.com', url: '/download', method: 'GET',
+        params: { ver: 1, client: 'android', id: transId, accesskey: transKey, fmt: 'krc', charset: 'utf8' },
+        encryptType: 'android', cookie: kgCookieObj(),
+      });
+      var krcBody = (tlr && tlr.data) || {};
+      var content = krcBody.content || '';
+      if (!content) { sendJSON(res, { ok: false, error: 'NO_CONTENT' }); return; }
+      var decoded = kugou.decodeLyrics(content) || '';
+      var langMatch = decoded.match(/\[language:(.+?)\]/);
+      var transLines = [];
+      if (langMatch) {
+        try {
+          var langData = JSON.parse(Buffer.from(langMatch[1], 'base64').toString());
+          (langData.content || []).forEach(function(c) {
+            if (c.type === 1 && c.lyricContent) {
+              c.lyricContent.forEach(function(l) {
+                var t = Array.isArray(l) ? l[0] : l;
+                if (t && t.trim()) transLines.push(t.trim());
+              });
+            }
+          });
+        } catch(_) {}
+      }
+      sendJSON(res, { ok: true, trans: transLines });
+    } catch (err) {
+      console.error('[KGLyricTrans]', err);
+      sendJSON(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/kugou/playlist/detail') {
     try {
       const ids = (url.searchParams.get('ids') || '').split(',').filter(Boolean);

@@ -19251,6 +19251,14 @@ async function fetchLyric(songOrId, token) {
     }
     var r = await apiJson(endpoint);
     if (token !== trackSwitchToken) return;
+    // 酷狗歌词翻译
+    if (provider === 'kugou') {
+      apiJson('/api/kugou/lyric/trans?hash=' + encodeURIComponent(song.hash || song.id || '')).then(function(tr){
+        if (tr && tr.ok && tr.trans && tr.trans.length) { window._lyricTrans = tr.trans; }
+        else { window._lyricTrans = null; }
+        applyPreferredLyricsForCurrent(true);
+      }).catch(function(){ window._lyricTrans = null; });
+    } else { window._lyricTrans = null; }
     var nativeLines = parseYrcText(r.yrc || '');
     var lrcLines = parseLyricText(r.lyric || '');
     var hasNativeKaraoke = nativeLines.some(function(line){ return line.words && line.words.length; });
