@@ -2407,6 +2407,11 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     </filter>
   </defs>
 </svg>
+<div id="multi-lyric-overlay" style="display:none;position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:50;max-width:260px;text-align:right;pointer-events:none">
+  <div id="multi-lyric-prev" style="font-size:12px;color:rgba(255,255,255,.25);line-height:1.8;transition:all .3s"></div>
+  <div id="multi-lyric-curr" style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin:8px 0;transition:all .3s"></div>
+  <div id="multi-lyric-next" style="font-size:12px;color:rgba(255,255,255,.3);line-height:1.8;transition:all .3s"></div>
+</div>
 <button id="bottom-handle" type="button" aria-label="展开播放器控制台" title="播放器控制台"><span></span></button>
 <div id="bottom-bar">
   <div id="mini-queue-popover" class="mini-queue-popover" onclick="event.stopPropagation()">
@@ -2441,6 +2446,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
       </div>
       <button id="heart-btn" class="ctrl-btn" onclick="toggleLikeCurrent()" title="红心喜欢"><svg class="heart-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.45c-.32 0-.62-.12-.86-.34l-1.23-1.12C5.54 16.03 2.25 13.05 2.25 8.9 2.25 5.48 4.88 2.9 8.28 2.9c1.7 0 3.35.72 4.52 1.96C13.97 3.62 15.62 2.9 17.32 2.9c3.4 0 6.03 2.58 6.03 6 0 4.15-3.29 7.13-7.66 11.09l-1.23 1.12c-.24.22-.54.34-.86.34z"/></svg></button>
       <button id="collect-btn" class="ctrl-btn" onclick="openCollectModalForCurrent()" title="收藏到歌单"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+      <button id="mlrc-btn" class="ctrl-btn" onclick="toggleMultiLyric()" title="多行歌词"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="12" y2="16"/></svg></button>
     </div>
     <div class="control-cluster transport">
     <button id="play-mode-btn" class="ctrl-btn" onclick="cyclePlayMode()" title="播放顺序"><svg id="play-mode-icon" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
@@ -27340,6 +27346,51 @@ function fetchHotComment(){
     }
   }).catch(function(){});
 }
+// ========== 多行歌词 ==========
+var multiLyricEnabled = false;
+function getCurrentLyricLines() {
+  var allLines = [];
+  var activeIdx = 0;
+  var source = (typeof lyricsLines !== 'undefined' && lyricsLines.length) ? lyricsLines : ((typeof originalLyricsState !== 'undefined' && originalLyricsState.lines) ? originalLyricsState.lines : []);
+  allLines = source.map(function(l){ return l.text || ''; });
+  }
+  if (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.lineIdx != null) {
+    activeIdx = Math.max(0, stageLyrics.lineIdx - 1);
+  }
+  var prevCount = 2, nextCount = 2;
+  var prev = [], next = [];
+  for (var i = Math.max(0, activeIdx - prevCount); i < activeIdx; i++) { if (allLines[i] && allLines[i].trim()) prev.push(allLines[i]); }
+  for (var j = activeIdx + 1; j <= Math.min(allLines.length - 1, activeIdx + nextCount); j++) { if (allLines[j] && allLines[j].trim()) next.push(allLines[j]); }
+  return { prev: prev, current: allLines[activeIdx] || '', next: next, currentIdx: activeIdx };
+}
+function toggleMultiLyric() {
+  multiLyricEnabled = !multiLyricEnabled;
+  var overlay = document.getElementById('multi-lyric-overlay');
+  var btn = document.getElementById('mlrc-btn');
+  if (overlay) overlay.style.display = multiLyricEnabled ? 'block' : 'none';
+  if (btn) btn.classList.toggle('active', multiLyricEnabled);
+  if (multiLyricEnabled) updateMultiLyricDisplay();
+}
+function updateMultiLyricDisplay() {
+  if (!multiLyricEnabled) return;
+  var overlay = document.getElementById('multi-lyric-overlay');
+  if (!overlay || overlay.style.display === 'none') return;
+  var prevEl = document.getElementById('multi-lyric-prev');
+  var currEl = document.getElementById('multi-lyric-curr');
+  var nextEl = document.getElementById('multi-lyric-next');
+  if (!currEl) return;
+  var lines = getCurrentLyricLines();
+  if (prevEl) prevEl.innerHTML = lines.prev.map(escHtml).join('<br>');
+  currEl.innerHTML = escHtml(lines.current) || '♪';
+  if (nextEl) nextEl.innerHTML = lines.next.map(escHtml).join('<br>');
+  // 翻译
+  if (window._lyricTrans && window._lyricTrans.length > lines.currentIdx) {
+    var trans = window._lyricTrans[lines.currentIdx];
+    if (trans) currEl.innerHTML += '<div style="font-size:13px;font-weight:400;color:rgba(255,255,255,.45);margin-top:4px">' + escHtml(trans) + '</div>';
+  }
+}
+// 定时刷新多行歌词
+setInterval(function(){ if (multiLyricEnabled) updateMultiLyricDisplay(); }, 400);
 // 自动获取天气（优先GPS精确定位，失败后IP回退）
 (function initWeatherCard(){
   function fetchWeatherByLatLon(lat, lon) {
