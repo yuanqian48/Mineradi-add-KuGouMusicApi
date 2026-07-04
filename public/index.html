@@ -2224,6 +2224,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
       <div class="fx-slider"><label>歌单架大小</label><input id="fx-shelfsize" type="range" min="0.65" max="1.45" step="0.01"><output></output></div>
       <div class="fx-toggle" id="t-liquidGlass" onclick="toggleLiquidGlass()"><span>液态玻璃</span><span class="dot"></span></div>
       <div class="fx-slider" id="liquid-opacity-row" style="display:none"><label>玻璃透明度</label><input id="fx-liquidOpacity" type="range" min="0.3" max="0.85" step="0.05" value="0.55"><output></output></div>
+      <div class="fx-toggle" id="t-perfMode" onclick="togglePerfMode()"><span>性能模式（减少粒子/阴影）</span><span class="dot"></span></div>
       <div class="fx-slider"><label>左右位置</label><input id="fx-shelfx" type="range" min="-1.2" max="1.2" step="0.01"><output></output></div>
       <div class="fx-slider"><label>上下位置</label><input id="fx-shelfy" type="range" min="-0.9" max="0.9" step="0.01"><output></output></div>
       <div class="fx-slider"><label>前后景深</label><input id="fx-shelfz" type="range" min="-0.9" max="0.9" step="0.01"><output></output></div>
@@ -2424,6 +2425,9 @@ body.liquid-glass .ctrl-btn,body.liquid-glass .pl-card,body.liquid-glass .queue-
   background:rgba(255,255,255,0.04)!important;border:1px solid rgba(255,255,255,0.06)!important;border-radius:10px!important
 }
 body.liquid-glass .ctrl-btn:hover{background:rgba(255,255,255,0.1)!important}
+body.perf-mode canvas{opacity:0.6!important}
+body.perf-mode #fx-panel,body.perf-mode #bottom-bar{box-shadow:none!important}
+body.perf-mode .home-card::before,body.perf-mode .home-card::after{display:none}
 </style>
 <button id="bottom-handle" type="button" aria-label="展开播放器控制台" title="播放器控制台"><span></span></button>
 <div id="bottom-bar">
@@ -27410,6 +27414,17 @@ function setPitchShift(val) {
   } catch(e) {}
   var lbl = document.getElementById('pitch-val'); if (lbl) lbl.textContent = val >= 0 ? ('+' + val) : val;
 }
+// ========== 性能模式 ==========
+function togglePerfMode() {
+  document.body.classList.toggle('perf-mode');
+  var on = document.body.classList.contains('perf-mode');
+  var tgl = document.getElementById('t-perfMode'); if (tgl) tgl.classList.toggle('active', on);
+  localStorage.setItem('mineradio-perf-mode', on ? '1' : '0');
+  if (on) showToast('性能模式已开启（减少粒子/阴影）');
+}
+(function(){
+  if (localStorage.getItem('mineradio-perf-mode') === '1') { document.body.classList.add('perf-mode'); var t=document.getElementById('t-perfMode'); if(t)t.classList.add('active'); }
+})();
 // ========== 液态玻璃 ==========
 function toggleLiquidGlass() {
   document.body.classList.toggle('liquid-glass');
