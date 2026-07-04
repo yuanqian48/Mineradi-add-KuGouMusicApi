@@ -4741,6 +4741,18 @@ const server = http.createServer(async (req, res) => {
           });
           const d2 = (r && r.data && r.data.data) || {};
           tracks = (d2.info || d2.list || d2.songs || []).map(mapKGSong);
+          var fallbackTotal = d2.count || d2.total || tracks.length;
+          if (tracks.length < fallbackTotal && tracks.length >= 300 && pagesize >= 300) {
+            var fbPages = Math.ceil(fallbackTotal / 300);
+            for (var fbp = 2; fbp <= fbPages; fbp++) {
+              try {
+                var fbR = await kugouRequest({ url: '/pubsongs/v2/get_other_list_file_nofilt', method: 'GET', params: { global_collection_id: id, page: fbp, pagesize: 300, area_code: 1, plat: 1, type: 1, mode: 1, personal_switch: 1, begin_idx: (fbp - 1) * 300, extend_fields: 'abtags,hot_cmt,popularization' }, encryptType: 'android', cookie: cookieObj });
+                var fbData = (fbR && fbR.data && fbR.data.data) || {};
+                var fbTracks = (fbData.info || fbData.list || fbData.songs || []).map(mapKGSong);
+                tracks = tracks.concat(fbTracks);
+              } catch(e) { break; }
+            }
+          }
         } catch (e) { errorMsg = errorMsg || e.message; }
       }
 
