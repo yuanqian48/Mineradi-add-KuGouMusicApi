@@ -2222,6 +2222,8 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
         <button class="fx-mini-btn ghost" type="button" onclick="resetShelfAccentColor()">默认</button>
       </div>
       <div class="fx-slider"><label>歌单架大小</label><input id="fx-shelfsize" type="range" min="0.65" max="1.45" step="0.01"><output></output></div>
+      <div class="fx-toggle" id="t-liquidGlass" onclick="toggleLiquidGlass()"><span>液态玻璃</span><span class="dot"></span></div>
+      <div class="fx-slider" id="liquid-opacity-row" style="display:none"><label>玻璃透明度</label><input id="fx-liquidOpacity" type="range" min="0.3" max="0.85" step="0.05" value="0.55"><output></output></div>
       <div class="fx-slider"><label>左右位置</label><input id="fx-shelfx" type="range" min="-1.2" max="1.2" step="0.01"><output></output></div>
       <div class="fx-slider"><label>上下位置</label><input id="fx-shelfy" type="range" min="-0.9" max="0.9" step="0.01"><output></output></div>
       <div class="fx-slider"><label>前后景深</label><input id="fx-shelfz" type="range" min="-0.9" max="0.9" step="0.01"><output></output></div>
@@ -2412,7 +2414,17 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <div id="multi-lyric-curr" style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin:8px 0;transition:all .3s"></div>
   <div id="multi-lyric-next" style="font-size:12px;color:rgba(255,255,255,.3);line-height:1.8;transition:all .3s"></div>
 </div>
-<style>#mlrc-btn.active,#speed-btn.active{color:#00f5d4;text-shadow:0 0 8px rgba(0,245,212,.4)}.eq-btn.active{background:rgba(0,245,212,.22)!important;border-color:rgba(0,245,212,.45)!important;color:#00f5d4!important}</style>
+<style>#mlrc-btn.active,#speed-btn.active{color:#00f5d4;text-shadow:0 0 8px rgba(0,245,212,.4)}.eq-btn.active{background:rgba(0,245,212,.22)!important;border-color:rgba(0,245,212,.45)!important;color:#00f5d4!important}
+/* 液态玻璃 */
+body.liquid-glass #playlist-panel,body.liquid-glass #fx-panel,body.liquid-glass #bottom-bar,body.liquid-glass #search-area,body.liquid-glass .modal-mask{
+  background:rgba(18,18,26,0.45)!important;backdrop-filter:blur(28px) saturate(1.4)!important;-webkit-backdrop-filter:blur(28px) saturate(1.4)!important;
+  border:1px solid rgba(255,255,255,0.08)!important;box-shadow:0 8px 40px rgba(0,0,0,0.18),inset 0 1px 0 rgba(255,255,255,0.06)!important
+}
+body.liquid-glass .ctrl-btn,body.liquid-glass .pl-card,body.liquid-glass .queue-item,body.liquid-glass .fx-mini-btn{
+  background:rgba(255,255,255,0.04)!important;border:1px solid rgba(255,255,255,0.06)!important;border-radius:10px!important
+}
+body.liquid-glass .ctrl-btn:hover{background:rgba(255,255,255,0.1)!important}
+</style>
 <button id="bottom-handle" type="button" aria-label="展开播放器控制台" title="播放器控制台"><span></span></button>
 <div id="bottom-bar">
   <div id="mini-queue-popover" class="mini-queue-popover" onclick="event.stopPropagation()">
@@ -27398,6 +27410,33 @@ function setPitchShift(val) {
   } catch(e) {}
   var lbl = document.getElementById('pitch-val'); if (lbl) lbl.textContent = val >= 0 ? ('+' + val) : val;
 }
+// ========== 液态玻璃 ==========
+function toggleLiquidGlass() {
+  document.body.classList.toggle('liquid-glass');
+  var on = document.body.classList.contains('liquid-glass');
+  var tgl = document.getElementById('t-liquidGlass');
+  if (tgl) tgl.classList.toggle('active', on);
+  var row = document.getElementById('liquid-opacity-row');
+  if (row) row.style.display = on ? 'block' : 'none';
+  if (on) applyLiquidOpacity();
+  localStorage.setItem('mineradio-liquid-glass', on ? '1' : '0');
+}
+function applyLiquidOpacity() {
+  var sl = document.getElementById('fx-liquidOpacity');
+  if (!sl) return;
+  var val = parseFloat(sl.value) || 0.55;
+  document.documentElement.style.setProperty('--liquid-opacity', val);
+}
+// 恢复
+(function(){
+  if (localStorage.getItem('mineradio-liquid-glass') === '1') {
+    document.body.classList.add('liquid-glass');
+    var tgl = document.getElementById('t-liquidGlass'); if (tgl) tgl.classList.add('active');
+    var row = document.getElementById('liquid-opacity-row'); if (row) row.style.display = 'block';
+  }
+  var sl = document.getElementById('fx-liquidOpacity');
+  if (sl) { sl.addEventListener('input', applyLiquidOpacity); applyLiquidOpacity(); }
+})();
 // ========== EQ 音效 (Web Audio API) ==========
 var eqAudioCtx = null, eqSource = null, eqFilters = [], eqActive = 'flat';
 var EQ_PRESETS = {
