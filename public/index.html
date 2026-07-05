@@ -2438,6 +2438,19 @@ body.liquid-glass .ctrl-btn:hover{background:rgba(255,255,255,0.1)!important}
 body.perf-mode canvas{opacity:0.6!important}
 body.perf-mode #fx-panel,body.perf-mode #bottom-bar{box-shadow:none!important}
 body.perf-mode .home-card::before,body.perf-mode .home-card::after{display:none}
+/* ---- 关闭弹窗 ---- */
+#close-dialog .cd-card{position:relative;width:min(380px,92vw);background:rgba(18,18,26,0.50);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:30px 28px 24px;text-align:center;backdrop-filter:blur(32px) saturate(1.5);-webkit-backdrop-filter:blur(32px) saturate(1.5);box-shadow:0 24px 72px rgba(0,0,0,.50),0 0 0 1px rgba(255,255,255,.025),inset 0 1px 0 rgba(255,255,255,.08),inset 0 -20px 50px rgba(0,0,0,.08)}
+#close-dialog .cd-card::before{content:'';position:absolute;top:0;left:32px;right:32px;height:1px;background:linear-gradient(90deg,transparent,rgba(0,245,212,.36),rgba(255,255,255,.13),transparent);opacity:.74;pointer-events:none}
+#close-dialog .cd-icon{width:48px;height:48px;border-radius:14px;background:rgba(0,245,212,.09);border:1px solid rgba(0,245,212,.18);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 32px rgba(0,245,212,.065),inset 0 1px 0 rgba(255,255,255,.06)}
+#close-dialog .cd-title{font-size:17px;font-weight:700;color:rgba(255,255,255,.94);margin-bottom:6px;letter-spacing:.3px}
+#close-dialog .cd-sub{font-size:12px;color:rgba(255,255,255,.40);margin-bottom:26px;line-height:1.5;letter-spacing:.2px}
+#close-dialog .cd-btn{font-family:inherit;cursor:pointer;letter-spacing:.3px;transition:all .22s cubic-bezier(.16,1,.3,1);border-radius:12px;outline:none}
+#close-dialog .cd-btn-tray{flex:1;height:42px;border:1px solid rgba(0,245,212,.26);background:rgba(0,245,212,.085);color:#00F5D4;font-size:13px;font-weight:700;box-shadow:0 10px 28px rgba(0,245,212,.045),inset 0 1px 0 rgba(255,255,255,.07);min-width:0}
+#close-dialog .cd-btn-tray:hover{background:rgba(0,245,212,.16);border-color:rgba(0,245,212,.42);box-shadow:0 14px 36px rgba(0,245,212,.10),inset 0 1px 0 rgba(255,255,255,.12);transform:translateY(-1px)}
+#close-dialog .cd-btn-quit{flex:1;height:42px;border:1px solid rgba(255,255,255,.085);background:rgba(255,255,255,.03);color:rgba(255,255,255,.68);font-size:13px;min-width:0}
+#close-dialog .cd-btn-quit:hover{background:rgba(255,86,100,.12);border-color:rgba(255,86,100,.28);color:#ff8a94;box-shadow:0 12px 32px rgba(255,86,100,.055);transform:translateY(-1px)}
+#close-dialog .cd-btn-cancel{height:42px;padding:0 16px;border:1px solid transparent;background:transparent;color:rgba(255,255,255,.36);font-size:12.5px;min-width:0}
+#close-dialog .cd-btn-cancel:hover{color:rgba(255,255,255,.64);background:rgba(255,255,255,.025)}
 </style>
 <button id="bottom-handle" type="button" aria-label="展开播放器控制台" title="播放器控制台"><span></span></button>
 <div id="bottom-bar">
@@ -2667,6 +2680,23 @@ body.perf-mode .home-card::before,body.perf-mode .home-card::after{display:none}
       <button class="modal-btn" onclick="deleteCustomLyricForCurrent()">删除</button>
       <button class="modal-btn" onclick="closeCustomLyricModal()">关闭</button>
       <button class="modal-btn primary" onclick="saveCustomLyricForCurrent()">保存使用</button>
+    </div>
+  </div>
+</div>
+
+<div id="close-dialog" class="modal-mask" style="align-items:center;justify-content:center">
+  <div class="cd-card">
+    <div style="margin-bottom:20px;display:flex;justify-content:center">
+      <div class="cd-icon">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#00F5D4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 2v3M16 2v3"/><circle cx="12" cy="14" r="1.8" fill="#00F5D4" stroke="none"/><path d="M12 9v3"/></svg>
+      </div>
+    </div>
+    <div class="cd-title">关闭 Mineradio</div>
+    <div class="cd-sub">音乐不会中断，可通过托盘图标恢复窗口</div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button onclick="closeDialogAction('tray')" class="cd-btn cd-btn-tray">最小化到托盘</button>
+      <button onclick="closeDialogAction('quit')" class="cd-btn cd-btn-quit">退出软件</button>
+      <button onclick="closeDialogAction('cancel')" class="cd-btn cd-btn-cancel">取消</button>
     </div>
   </div>
 </div>
@@ -27382,6 +27412,32 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+// ========== 关闭弹窗 ==========
+window.addEventListener('message', function(e){
+  console.log('[renderer] message received:', e.data);
+  if (e.data && e.data.type === 'mineradio-show-close-dialog') showCloseDialog();
+});
+function showCloseDialog() {
+  var el = document.getElementById('close-dialog');
+  if (el) { el.classList.add('show'); return; }
+  var overlay = document.createElement('div');
+  overlay.id = 'close-dialog';
+  overlay.className = 'modal-mask show';
+  overlay.innerHTML = '<div class="cd-card"><div style="margin-bottom:20px;display:flex;justify-content:center"><div class="cd-icon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#00F5D4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 2v3M16 2v3"/><circle cx="12" cy="14" r="1.8" fill="#00F5D4" stroke="none"/><path d="M12 9v3"/></svg></div></div><div class="cd-title">关闭 Mineradio</div><div class="cd-sub">音乐不会中断，可通过托盘图标恢复窗口</div><div style="display:flex;gap:10px;justify-content:center"><button id="cd-tray-btn" class="cd-btn cd-btn-tray">最小化到托盘</button><button id="cd-quit-btn" class="cd-btn cd-btn-quit">退出软件</button><button id="cd-cancel-btn" class="cd-btn cd-btn-cancel">取消</button></div></div>';
+  document.body.appendChild(overlay);
+  document.getElementById('cd-tray-btn').onclick = function(){ closeDialogAction('tray'); };
+  document.getElementById('cd-quit-btn').onclick = function(){ closeDialogAction('quit'); };
+  document.getElementById('cd-cancel-btn').onclick = function(){ closeDialogAction('cancel'); };
+}
+function closeDialogAction(action) {
+  var el = document.getElementById('close-dialog');
+  if (el) { el.classList.remove('show'); }
+  if (window.desktopWindow && window.desktopWindow.closeDialogAction) {
+    window.desktopWindow.closeDialogAction(action);
+  } else {
+    if (action === 'quit') window.close();
+  }
+}
 // 自动进入
 setTimeout(function(){ splashAnimating = false; dismissSplash(); }, 2000);
 // 延迟恢复上次播放

@@ -1119,7 +1119,14 @@ ipcMain.handle('desktop-window-get-state', (event) => {
 });
 
 ipcMain.handle('desktop-window-close', (event) => {
-  getSenderWindow(event)?.close();
+  var win = getSenderWindow(event);
+  console.log('[close-dialog] desktop-window-close called, win=', !!win, 'isQuitting=', app.isQuitting);
+  if (win && !app.isQuitting) {
+    console.log('[close-dialog] sending show-close-dialog to renderer');
+    win.webContents.send('show-close-dialog');
+    return;
+  }
+  if (win) win.close();
 });
 
 ipcMain.handle('mineradio-hotkeys-configure-global', (_event, bindings) => {
@@ -1995,25 +2002,10 @@ async function createWindow() {
     event.preventDefault();
     mainWindow.hide();
   });
-  // 关闭窗口时弹出选择：最小化到托盘 / 退出软件
-  mainWindow.on('close', function(event){
-    if (app.isQuitting) return;
-    event.preventDefault();
-    dialog.showMessageBox(mainWindow, {
-      type: 'question',
-      buttons: ['最小化到托盘', '退出 Mineradio', '取消'],
-      defaultId: 0,
-      title: 'Mineradio',
-      message: '关闭窗口时您希望？',
-      detail: '选择"最小化到托盘"后可通过托盘图标恢复窗口，音乐不会中断。'
-    }).then(function(result){
-      if (result.response === 0) {
-        mainWindow.hide();
-      } else if (result.response === 1) {
-        app.isQuitting = true;
-        app.quit();
-      }
-    });
+  // 渲染进程关闭回调
+  ipcMain.handle('close-dialog-action', function(_event, action){
+    if (action === 'tray') { mainWindow.hide(); }
+    else if (action === 'quit') { app.isQuitting = true; app.quit(); }
   });
   app.on('before-quit', function(){ app.isQuitting = true; });
 }

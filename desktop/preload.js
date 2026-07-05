@@ -56,9 +56,12 @@ contextBridge.exposeInMainWorld('desktopWindow', {
     ipcRenderer.on('desktop-window-state', listener);
     return () => ipcRenderer.removeListener('desktop-window-state', listener);
   },
+  // 关闭弹窗
+  closeDialogAction: (action) => ipcRenderer.invoke('close-dialog-action', action),
 });
 
 window.addEventListener('DOMContentLoaded', () => {
   document.documentElement.classList.add('desktop-shell-root');
   document.body.classList.add('desktop-shell');
 });
+ipcRenderer.on('show-close-dialog', function(){ console.log('[preload] received show-close-dialog, posting message'); window.postMessage({ type: 'mineradio-show-close-dialog' }, '*'); });
