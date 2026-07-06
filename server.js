@@ -4638,7 +4638,9 @@ const server = http.createServer(async (req, res) => {
           params: { hash: transHash, appid: kugou.getAppid(), clientver: kugou.getClientver(), duration: 0, keyword: '', lrctxt: 1, man: 'no', album_audio_id: 0 },
           encryptType: 'android', clearDefaultParams: true, notSign: true, cookie: kgCookieObj(),
         });
-        var sc = ((slr && slr.data && slr.data.data) || {}).candidates || [];
+        var sd = (slr && slr.data && slr.data.data) || (slr && slr.data) || {};
+        var sc = (Array.isArray(sd.candidates) ? sd.candidates : [])
+          .concat(Array.isArray(sd.ugccandidates) ? sd.ugccandidates : []);
         if (sc.length) { transId = sc[0].id; transKey = sc[0].accesskey; }
       }
       if (!transId || !transKey) { sendJSON(res, { ok: false, error: 'NO_LYRIC' }); return; }
@@ -4660,7 +4662,7 @@ const server = http.createServer(async (req, res) => {
             if (c.type === 1 && c.lyricContent) {
               c.lyricContent.forEach(function(l) {
                 var t = Array.isArray(l) ? l[0] : l;
-                if (t && t.trim()) transLines.push(t.trim());
+                transLines.push(t ? String(t).trim() : '');
               });
             }
           });
