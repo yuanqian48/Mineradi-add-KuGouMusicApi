@@ -1816,7 +1816,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 /*  舞台歌词 (大字 + 3D 入场 + 呼吸)                              */
 /* ============================================================ */
 #stage-lyrics{display:none}
-.stage-lyric-line{position:absolute;font-family:var(--font-sans);font-weight:700;font-size:clamp(34px,5.6vw,76px);letter-spacing:2px;text-align:center;color:#fff;white-space:nowrap;max-width:92vw;padding:0 24px;text-shadow:0 0 14px rgba(168,246,255,.38),0 0 36px rgba(143,233,255,.30),0 0 80px rgba(115,167,255,.16);background:linear-gradient(180deg,rgba(246,253,255,1) 0%,rgba(168,246,255,1) 55%,rgba(126,205,255,1) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;opacity:0;transform-style:preserve-3d;will-change:transform,opacity,filter;filter:drop-shadow(0 4px 22px rgba(143,233,255,.30))}
+.stage-lyric-line{position:absolute;font-family:var(--font-sans);font-weight:700;font-size:clamp(34px,5.6vw,76px);letter-spacing:2px;text-align:center;color:#fff;white-space:pre-line;max-width:92vw;padding:0 24px;text-shadow:0 0 14px rgba(168,246,255,.38),0 0 36px rgba(143,233,255,.30),0 0 80px rgba(115,167,255,.16);background:linear-gradient(180deg,rgba(246,253,255,1) 0%,rgba(168,246,255,1) 55%,rgba(126,205,255,1) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;opacity:0;transform-style:preserve-3d;will-change:transform,opacity,filter;filter:drop-shadow(0 4px 22px rgba(143,233,255,.30))}
 .stage-lyric-line.in{animation:lyr-in 900ms cubic-bezier(.16,.84,.32,1.02) forwards,lyr-bob 5.6s ease-in-out 900ms infinite}
 .stage-lyric-line.out{animation:lyr-out 700ms cubic-bezier(.55,0,.85,.45) forwards}
 @keyframes lyr-bob{0%,100%{transform:translate3d(var(--bx,0px),0,0) rotateX(0deg) rotateY(0deg) scale(1)}25%{transform:translate3d(calc(var(--bx,0px) + 6px),-7px,12px) rotateX(2deg) rotateY(-1.5deg) scale(1.01)}50%{transform:translate3d(var(--bx,0px),3px,0) rotateX(-1.5deg) rotateY(0deg) scale(.99)}75%{transform:translate3d(calc(var(--bx,0px) - 6px),-4px,8px) rotateX(1.2deg) rotateY(1.5deg) scale(1.005)}}
@@ -8563,20 +8563,41 @@ function lyricThreeColor(css, fallback, minLum) {
 
 var STAGE_LYRIC_MAX_LINES = 1;
 
+function lyricTranslationForIndex(index) {
+  var list = window._lyricTrans;
+  if (!Array.isArray(list) || index == null || index < 0 || index >= list.length) return '';
+  return String(list[index] || '').trim();
+}
+
+function stageLyricTextForLine(line, index) {
+  var text = String(line && line.text || '').trim();
+  var trans = lyricTranslationForIndex(index);
+  if (!text) return trans;
+  if (!trans || trans === text) return text;
+  return text + '\n' + trans;
+}
+
 function makeLyricMask(text) {
   var canvas = document.createElement('canvas');
   var W = 2048, H = 384;
   canvas.width = W; canvas.height = H;
   var ctx = canvas.getContext('2d');
   var maxWidth = W - 190;
-  var maxLines = STAGE_LYRIC_MAX_LINES;
+  var rawText = String(text || '').replace(/\r/g, '\n').trim();
+  var explicitLines = rawText.split(/\n+/).map(function(line){
+    return line.replace(/\s+/g, ' ').trim();
+  }).filter(Boolean);
+  var hasExplicitLines = explicitLines.length > 1;
+  var maxLines = hasExplicitLines ? Math.min(2, explicitLines.length) : STAGE_LYRIC_MAX_LINES;
   var fontSize = 128;
-  text = String(text || '').replace(/\s+/g, ' ').trim();
-  var lines = [text];
+  text = hasExplicitLines ? explicitLines.join('\n') : rawText.replace(/\s+/g, ' ');
+  var lines = hasExplicitLines ? explicitLines.slice(0, maxLines) : [text];
   var widest = 1;
   for (; fontSize >= 42; fontSize -= 4) {
     ctx.font = lyricFontCss(fontSize);
-    lines = maxLines > 1 && lyricMeasureText(ctx, text, fontSize) > maxWidth ? wrapLyricText(ctx, text, maxWidth, maxLines, fontSize) : [text];
+    lines = hasExplicitLines
+      ? explicitLines.slice(0, maxLines)
+      : (maxLines > 1 && lyricMeasureText(ctx, text, fontSize) > maxWidth ? wrapLyricText(ctx, text, maxWidth, maxLines, fontSize) : [text]);
     widest = 1;
     for (var li = 0; li < lines.length; li++) widest = Math.max(widest, lyricMeasureText(ctx, lines[li], fontSize));
     if (widest <= maxWidth) break;
@@ -8904,7 +8925,9 @@ function makeLyricShaderMaterial(mask, pal) {
 }
 
 function buildLyricMesh(text) {
-  text = String(text || '').replace(/\s+/g, ' ').trim();
+  text = String(text || '').replace(/\r/g, '\n').split(/\n+/).map(function(line){
+    return line.replace(/\s+/g, ' ').trim();
+  }).filter(Boolean).join('\n');
   var mask = makeLyricMask(text);
   var pal = stageLyrics.palette;
   var worldW = 6.10;
@@ -9064,6 +9087,18 @@ function refreshCurrentLyricStyle() {
   showStageLine(stageLyrics.currentText, true);
   updateLyricMeshProgress(stageLyrics.current, progress);
   if (stageLyrics.current && stageLyrics.current.userData) stageLyrics.current.userData.age = 0.48;
+}
+
+function refreshCurrentStageLyricText() {
+  if (!stageLyrics || stageLyrics.currentIdx == null || stageLyrics.currentIdx < 0) return;
+  var line = lyricsLines && lyricsLines[stageLyrics.currentIdx];
+  if (!line) return;
+  var text = stageLyricTextForLine(line, stageLyrics.currentIdx);
+  if (!text || text === stageLyrics.currentText) return;
+  var progress = stageLyrics.current && stageLyrics.current.userData ? (stageLyrics.current.userData.lastLyricProgress || 0) : 0;
+  showStageLine(text, true);
+  if (stageLyrics.current) updateLyricMeshProgress(stageLyrics.current, progress);
+  if (typeof pushDesktopLyricsState === 'function') pushDesktopLyricsState(true);
 }
 
 function clearStageLyrics() {
@@ -9430,7 +9465,7 @@ function tickLyricsParticles() {
   }
   if (newIdx !== stageLyrics.currentIdx) {
     stageLyrics.currentIdx = newIdx;
-    showStageLine(lyricsLines[newIdx].text || '');
+    showStageLine(stageLyricTextForLine(lyricsLines[newIdx], newIdx));
   }
   if (stageLyrics.current) {
     var curLine = lyricsLines[newIdx] || { t:t };
@@ -19348,10 +19383,15 @@ async function fetchLyric(songOrId, token) {
     setTimeout(function(){ if (provider === 'kugou' && trackSwitchToken === token) loadComments(); }, 100);
     // 酷狗歌词翻译
     if (provider === 'kugou') {
-      apiJson('/api/kugou/lyric/trans?hash=' + encodeURIComponent(song.hash || song.id || '')).then(function(tr){
+      var kgTransParams = new URLSearchParams();
+      kgTransParams.set('hash', song.hash || song.id || '');
+      if (r.id) kgTransParams.set('id', r.id);
+      if (r.accesskey) kgTransParams.set('accesskey', r.accesskey);
+      apiJson('/api/kugou/lyric/trans?' + kgTransParams.toString()).then(function(tr){
         if (tr && tr.ok && tr.trans && tr.trans.length) { window._lyricTrans = tr.trans; }
         else { window._lyricTrans = null; }
         applyPreferredLyricsForCurrent(true);
+        refreshCurrentStageLyricText();
       }).catch(function(){ window._lyricTrans = null; });
     } else { window._lyricTrans = null; }
     var nativeLines = parseYrcText(r.yrc || '');
@@ -26662,7 +26702,9 @@ function currentDesktopSongMeta() {
   };
 }
 function normalizeDesktopLyricText(text) {
-  return String(text || '').replace(/\s+/g, ' ').trim();
+  return String(text || '').replace(/\r/g, '\n').split(/\n+/).map(function(line){
+    return line.replace(/\s+/g, ' ').trim();
+  }).filter(Boolean).slice(0, 2).join('\n');
 }
 function currentDesktopLyricSnapshot() {
   var t = audio && isFinite(audio.currentTime) ? Number(audio.currentTime) : 0;
@@ -26679,7 +26721,7 @@ function currentDesktopLyricSnapshot() {
       var nextT = nextLine && nextLine.t > curLine.t ? nextLine.t : Math.min((audio && audio.duration) || t + 4, curLine.t + (curLine.duration || 4.8));
       var span = Math.max(0.75, nextT - curLine.t);
       return {
-        text: normalizeDesktopLyricText(curLine.text || currentLyricFallbackText()),
+        text: normalizeDesktopLyricText(stageLyricTextForLine(curLine, idx) || currentLyricFallbackText()),
         progress: getLyricLineProgress(curLine, nextLine, t),
         progressSpan: span
       };
