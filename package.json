@@ -85,6 +85,10 @@
     }
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@choreruiz/capacitor-node-js": "^1.0.2",
     "axios": "^1.18.1",
     "big-integer": "^1.6.52",
     "crypto-js": "^4.2.0",
