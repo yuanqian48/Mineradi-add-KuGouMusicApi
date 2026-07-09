@@ -52,6 +52,7 @@ const crypto = require('crypto');
 const tls = require('tls');
 const { once } = require('events');
 const { fileURLToPath } = require('url');
+const { execFileSync } = require('child_process');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 const kugou = require('./kugou-core.js');
 
@@ -120,6 +121,29 @@ const MIME = {
   '.ico':  'image/x-icon',
   '.svg':  'image/svg+xml',
 };
+
+const LOCAL_FILE_MIME = {
+  '.mp3': 'audio/mpeg',
+  '.flac': 'audio/flac',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4',
+  '.lrc': 'text/plain; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.mp4': 'video/mp4',
+  '.m4v': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+};
+
+function localContentTypeForPath(filePath) {
+  return LOCAL_FILE_MIME[path.extname(String(filePath || '')).toLowerCase()] || 'application/octet-stream';
+}
 
 // ---------- Cookie 持久化 ----------
 const COOKIE_ATTRIBUTE_NAMES = new Set(['path', 'domain', 'expires', 'max-age', 'samesite', 'secure', 'httponly']);
@@ -265,6 +289,208 @@ function sendJSON(res, data, status) {
     'Expires': '0',
   });
   res.end(JSON.stringify(data));
+}
+
+const wallpaperMediaIndex = new Map();
+function steamRegistryRoots() {
+  if (process.platform !== 'win32') return [];
+  const roots = new Set();
+  const queries = [
+    ['HKCU\\Software\\Valve\\Steam', 'SteamPath'],
+    ['HKCU\\Software\\Valve\\Steam', 'SteamExe'],
+    ['HKLM\\SOFTWARE\\WOW6432Node\\Valve\\Steam', 'InstallPath'],
+    ['HKLM\\SOFTWARE\\Valve\\Steam', 'InstallPath'],
+  ];
+  queries.forEach(([key, value]) => {
+    try {
+      const output = execFileSync('reg.exe', ['query', key, '/v', value], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 2500,
+      });
+      const match = output.match(new RegExp(`${value}\\s+REG_\\w+\\s+(.+)$`, 'mi'));
+      if (!match) return;
+      let found = match[1].trim().replace(/\//g, '\\');
+      if (/steam\.exe$/i.test(found)) found = path.dirname(found);
+      if (found) roots.add(found);
+    } catch (_error) {}
+  });
+  return [...roots];
+}
+function steamLibraryRoots() {
+  const roots = new Set([
+    'C:\\Program Files\\Steam',
+    'C:\\Program Files (x86)\\Steam',
+    'D:\\SteamLibrary',
+    'E:\\SteamLibrary',
+    'F:\\SteamLibrary',
+  ]);
+  [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.ProgramW6432]
+    .filter(Boolean)
+    .forEach(base => roots.add(path.join(base, 'Steam')));
+  steamRegistryRoots().forEach(root => roots.add(root));
+  for (let code = 67; code <= 90; code++) {
+    const drive = String.fromCharCode(code) + ':\\';
+    roots.add(path.join(drive, 'Steam'));
+    roots.add(path.join(drive, 'SteamLibrary'));
+    roots.add(path.join(drive, 'Program Files', 'Steam'));
+    roots.add(path.join(drive, 'Program Files (x86)', 'Steam'));
+    roots.add(path.join(drive, 'Games', 'Steam'));
+    roots.add(path.join(drive, 'Games', 'SteamLibrary'));
+  }
+  for (const root of [...roots]) {
+    [
+      path.join(root, 'steamapps', 'libraryfolders.vdf'),
+      path.join(root, 'config', 'libraryfolders.vdf'),
+    ].forEach(vdf => {
+      try {
+        const text = fs.readFileSync(vdf, 'utf8').replace(/^\uFEFF/, '');
+        for (const match of text.matchAll(/"path"\s+"([^"]+)"/gi)) {
+          const found = match[1].replace(/\\\\/g, '\\').trim();
+          if (/^[a-z]:\\/i.test(found)) roots.add(found);
+        }
+        for (const match of text.matchAll(/"\d+"\s+"([a-z]:\\{1,2}[^"]+)"/gi)) {
+          const found = match[1].replace(/\\\\/g, '\\').trim();
+          if (/^[a-z]:\\/i.test(found)) roots.add(found);
+        }
+      } catch (_err) {}
+    });
+  }
+  return [...roots].filter(root => fs.existsSync(root));
+}
+function firstExistingWallpaperFile(dir, candidates) {
+  const base = path.resolve(dir);
+  for (const value of candidates) {
+    if (!value) continue;
+    const target = path.resolve(dir, String(value));
+    if (target.startsWith(base + path.sep) && fs.existsSync(target) && fs.statSync(target).isFile()) return target;
+  }
+  return '';
+}
+function compatibleWallpaperMedia(dir, project) {
+  const supported = new Map([
+    ['.mp4', 'video'], ['.webm', 'video'], ['.mov', 'video'], ['.m4v', 'video'],
+    ['.jpg', 'image'], ['.jpeg', 'image'], ['.png', 'image'], ['.webp', 'image'], ['.gif', 'image'],
+  ]);
+  const direct = firstExistingWallpaperFile(dir, [project && project.file]);
+  if (direct && supported.has(path.extname(direct).toLowerCase())) {
+    return { file: direct, mediaType: supported.get(path.extname(direct).toLowerCase()) };
+  }
+  const candidates = [];
+  const stack = [dir];
+  let visited = 0;
+  while (stack.length && visited < 5000) {
+    const current = stack.pop();
+    let entries = [];
+    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch (_error) { continue; }
+    for (const entry of entries) {
+      if (++visited > 5000) break;
+      const target = path.join(current, entry.name);
+      if (entry.isDirectory()) { stack.push(target); continue; }
+      if (!entry.isFile() || /^preview\./i.test(entry.name)) continue;
+      const mediaType = supported.get(path.extname(entry.name).toLowerCase());
+      if (!mediaType) continue;
+      if (mediaType === 'image' && current !== dir) continue;
+      let size = 0;
+      try { size = fs.statSync(target).size; } catch (_error) {}
+      candidates.push({ file: target, mediaType, size });
+    }
+  }
+  candidates.sort((a, b) => {
+    if (a.mediaType !== b.mediaType) return a.mediaType === 'video' ? -1 : 1;
+    return b.size - a.size;
+  });
+  return candidates[0] || { file: '', mediaType: '' };
+}
+function bestWallpaperPreview(dir, project) {
+  const preferred = firstExistingWallpaperFile(dir, [
+    project && project.preview,
+    project && project.cover,
+    project && project.poster,
+    'preview.jpg', 'preview.png', 'preview.jpeg', 'preview.webp',
+    'cover.jpg', 'cover.png', 'poster.jpg', 'poster.png',
+  ]);
+  const candidates = [];
+  if (preferred) {
+    try { candidates.push({ file: preferred, size: fs.statSync(preferred).size, priority: 2 }); } catch (_error) {}
+  }
+  const stack = [dir];
+  let visited = 0;
+  while (stack.length && visited < 3000) {
+    const current = stack.pop();
+    let entries = [];
+    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch (_error) { continue; }
+    for (const entry of entries) {
+      if (++visited > 3000) break;
+      const target = path.join(current, entry.name);
+      if (entry.isDirectory()) { stack.push(target); continue; }
+      if (!entry.isFile() || !/^(?:preview|cover|poster|thumbnail)[^/]*\.(?:jpe?g|png|webp)$/i.test(entry.name)) continue;
+      try { candidates.push({ file: target, size: fs.statSync(target).size, priority: current === dir ? 2 : 1 }); } catch (_error) {}
+    }
+  }
+  candidates.sort((a, b) => b.priority - a.priority || b.size - a.size);
+  return candidates[0] && candidates[0].file || '';
+}
+function wallpaperContentFingerprint(file) {
+  if (!file) return '';
+  try {
+    const stat = fs.statSync(file);
+    const length = Math.min(stat.size, 128 * 1024);
+    const buffer = Buffer.alloc(length);
+    const fd = fs.openSync(file, 'r');
+    try { fs.readSync(fd, buffer, 0, length, 0); } finally { fs.closeSync(fd); }
+    return crypto.createHash('sha1').update(String(stat.size)).update(buffer).digest('hex');
+  } catch (_error) {
+    return '';
+  }
+}
+function scanWallpaperEngineLibrary() {
+  wallpaperMediaIndex.clear();
+  const results = [];
+  const projectRoots = [];
+  steamLibraryRoots().forEach(root => {
+    projectRoots.push(path.join(root, 'steamapps', 'workshop', 'content', '431960'));
+    projectRoots.push(path.join(root, 'steamapps', 'common', 'wallpaper_engine', 'projects', 'myprojects'));
+  });
+  const seen = new Set();
+  const seenContent = new Set();
+  projectRoots.forEach(root => {
+    if (!fs.existsSync(root)) return;
+    let dirs = [];
+    try { dirs = fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => path.join(root, entry.name)); } catch (_err) {}
+    dirs.forEach(dir => {
+      const projectPath = path.join(dir, 'project.json');
+      if (!fs.existsSync(projectPath)) return;
+      try {
+        const project = JSON.parse(fs.readFileSync(projectPath, 'utf8'));
+        const type = String(project.type || '').toLowerCase();
+        const compatible = compatibleWallpaperMedia(dir, project);
+        const media = compatible.file;
+        const preview = bestWallpaperPreview(dir, project);
+        if (!media && !preview) return;
+        const fingerprint = crypto.createHash('sha1').update(projectPath).digest('hex').slice(0, 18);
+        if (seen.has(fingerprint)) return;
+        const contentFingerprint = wallpaperContentFingerprint(media || preview);
+        if (contentFingerprint && seenContent.has(contentFingerprint)) return;
+        seen.add(fingerprint);
+        if (contentFingerprint) seenContent.add(contentFingerprint);
+        if (media) wallpaperMediaIndex.set(fingerprint + ':media', media);
+        if (preview) wallpaperMediaIndex.set(fingerprint + ':preview', preview);
+        results.push({
+          id: fingerprint,
+          title: String(project.title || path.basename(dir)).slice(0, 160),
+          type: media ? compatible.mediaType : type || 'scene',
+          projectType: type || '',
+          mediaType: compatible.mediaType || '',
+          playable: !!media,
+          dynamic: !!media && compatible.mediaType === 'video',
+          hasPreview: !!preview,
+          dedupeKey: contentFingerprint || fingerprint,
+        });
+      } catch (_err) {}
+    });
+  });
+  return results.sort((a, b) => Number(b.playable) - Number(a.playable) || a.title.localeCompare(b.title, 'zh-CN'));
 }
 function readPackageInfo() {
   try {
@@ -2593,33 +2819,71 @@ async function handleQQUserPlaylists() {
   const info = await getQQLoginInfo();
   if (!info.loggedIn || !info.userId) return { loggedIn: false, provider: 'qq', playlists: [] };
   const uin = info.userId;
-  const createdReq = qqGetJSON('https://c.y.qq.com/rsc/fcgi-bin/fcg_user_created_diss', {
-    hostUin: 0,
-    hostuin: uin,
-    sin: 0,
-    size: 200,
-    g_tk: 5381,
-    loginUin: uin,
-    format: 'json',
-    inCharset: 'utf8',
-    outCharset: 'utf-8',
-    notice: 0,
-    platform: 'yqq.json',
-    needNewCode: 0,
-  }, { headers: { Referer: 'https://y.qq.com/portal/profile.html' } });
-  const collectReq = qqGetJSON('https://c.y.qq.com/fav/fcgi-bin/fcg_get_profile_order_asset.fcg', {
-    ct: 20,
-    cid: 205360956,
-    userid: uin,
-    reqtype: 3,
-    sin: 0,
-    ein: 80,
-  }, { headers: { Referer: 'https://y.qq.com/portal/profile.html' } });
-  const [createdRaw, collectRaw] = await Promise.allSettled([createdReq, collectReq]);
-  const created = createdRaw.status === 'fulfilled' && createdRaw.value && createdRaw.value.data && Array.isArray(createdRaw.value.data.disslist)
-    ? createdRaw.value.data.disslist.map(pl => mapQQPlaylist(pl, 'created')) : [];
-  const collected = collectRaw.status === 'fulfilled' && collectRaw.value && collectRaw.value.data && Array.isArray(collectRaw.value.data.cdlist)
-    ? collectRaw.value.data.cdlist.map(pl => mapQQPlaylist(pl, 'collect')) : [];
+  async function fetchCreated() {
+    const out = [];
+    const seen = new Set();
+    const pageSize = 200;
+    for (let sin = 0; ; sin += pageSize) {
+      const raw = await qqGetJSON('https://c.y.qq.com/rsc/fcgi-bin/fcg_user_created_diss', {
+        hostUin: 0,
+        hostuin: uin,
+        sin,
+        size: pageSize,
+        g_tk: 5381,
+        loginUin: uin,
+        format: 'json',
+        inCharset: 'utf8',
+        outCharset: 'utf-8',
+        notice: 0,
+        platform: 'yqq.json',
+        needNewCode: 0,
+      }, { headers: { Referer: 'https://y.qq.com/portal/profile.html' } });
+      const list = raw && raw.data && Array.isArray(raw.data.disslist) ? raw.data.disslist : [];
+      let added = 0;
+      list.forEach(pl => {
+        const mapped = mapQQPlaylist(pl, 'created');
+        const key = String(mapped.id || '');
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        out.push(mapped);
+        added++;
+      });
+      const total = Number(raw && raw.data && (raw.data.total || raw.data.totaldiss || raw.data.disslist_count)) || 0;
+      if (list.length < pageSize || added === 0 || (total && out.length >= total)) break;
+    }
+    return out;
+  }
+  async function fetchCollected() {
+    const out = [];
+    const seen = new Set();
+    const pageSize = 200;
+    for (let sin = 0; ; sin += pageSize) {
+      const raw = await qqGetJSON('https://c.y.qq.com/fav/fcgi-bin/fcg_get_profile_order_asset.fcg', {
+        ct: 20,
+        cid: 205360956,
+        userid: uin,
+        reqtype: 3,
+        sin,
+        ein: sin + pageSize - 1,
+      }, { headers: { Referer: 'https://y.qq.com/portal/profile.html' } });
+      const list = raw && raw.data && Array.isArray(raw.data.cdlist) ? raw.data.cdlist : [];
+      let added = 0;
+      list.forEach(pl => {
+        const mapped = mapQQPlaylist(pl, 'collect');
+        const key = String(mapped.id || '');
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        out.push(mapped);
+        added++;
+      });
+      const total = Number(raw && raw.data && (raw.data.total || raw.data.totalnum || raw.data.total_count)) || 0;
+      if (list.length < pageSize || added === 0 || (total && out.length >= total)) break;
+    }
+    return out;
+  }
+  const [createdRaw, collectRaw] = await Promise.allSettled([fetchCreated(), fetchCollected()]);
+  const created = createdRaw.status === 'fulfilled' ? createdRaw.value : [];
+  const collected = collectRaw.status === 'fulfilled' ? collectRaw.value : [];
   const seen = new Set();
   const playlists = created.concat(collected).filter(pl => {
     if (!pl.id || !pl.name || seen.has(pl.id)) return false;
@@ -2635,27 +2899,47 @@ async function handleQQPlaylistTracks(id) {
   if (!info.loggedIn || !info.userId) return { loggedIn: false, provider: 'qq', tracks: [] };
   const pid = String(id || '').trim();
   if (!pid) return { loggedIn: true, provider: 'qq', error: 'Missing QQ playlist id', tracks: [] };
-  const result = await qqGetJSON('https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg', {
-    type: 1,
-    utf8: 1,
-    disstid: pid,
-    loginUin: info.userId,
-    format: 'json',
-    inCharset: 'utf8',
-    outCharset: 'utf-8',
-    notice: 0,
-    platform: 'yqq.json',
-    needNewCode: 0,
-  }, { headers: { Referer: 'https://y.qq.com/n/yqq/playlist' } });
-  const detail = result && result.cdlist && result.cdlist[0] ? result.cdlist[0] : {};
-  const rawTracks = Array.isArray(detail.songlist) ? detail.songlist : [];
+  const pageSize = 500;
+  let detail = {};
+  const rawTracks = [];
+  const seen = new Set();
+  for (let songBegin = 0; ; songBegin += pageSize) {
+    const result = await qqGetJSON('https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg', {
+      type: 1,
+      utf8: 1,
+      disstid: pid,
+      loginUin: info.userId,
+      format: 'json',
+      inCharset: 'utf8',
+      outCharset: 'utf-8',
+      notice: 0,
+      platform: 'yqq.json',
+      needNewCode: 0,
+      song_begin: songBegin,
+      song_num: pageSize,
+    }, { headers: { Referer: 'https://y.qq.com/n/yqq/playlist' } });
+    const pageDetail = result && result.cdlist && result.cdlist[0] ? result.cdlist[0] : {};
+    if (!songBegin) detail = pageDetail;
+    const pageTracks = Array.isArray(pageDetail.songlist) ? pageDetail.songlist : [];
+    let added = 0;
+    pageTracks.forEach(track => {
+      const t = track && (track.track_info || track.songInfo || track.songinfo || track.song || track);
+      const key = String((t && (t.mid || t.songmid || t.id || t.songid)) || JSON.stringify(track || {}));
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      rawTracks.push(track);
+      added++;
+    });
+    const total = Number(pageDetail.total_song_num || pageDetail.songnum || pageDetail.totalnum || pageDetail.total) || 0;
+    if (pageTracks.length < pageSize || added === 0 || (total && rawTracks.length >= total)) break;
+  }
   const tracks = rawTracks.map(mapQQPlaylistTrack).filter(s => s.name && (s.mid || s.id));
   const playlist = {
     provider: 'qq',
     id: pid,
     name: detail.dissname || detail.diss_name || detail.name || '',
     cover: detail.logo || detail.diss_cover || '',
-    trackCount: tracks.length,
+    trackCount: Number(detail.total_song_num || detail.songnum || detail.totalnum || detail.total) || tracks.length,
   };
   return { loggedIn: true, provider: 'qq', playlist, tracks };
 }
@@ -3066,6 +3350,148 @@ async function handleQQLyric(mid, id) {
     roma: romaText,
     source: lyricText ? source : 'qq-empty',
   };
+}
+
+function compactLyricMarkerText(value) {
+  return String(value || '')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\(\d+,\d+,\d+\)/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[，,。.!！?？、~～:：]/g, '')
+    .toLowerCase();
+}
+
+function hasNoLyricMarkerText(value) {
+  const compact = compactLyricMarkerText(value);
+  return compact.includes('纯音乐请欣赏')
+    || compact.includes('此歌曲为没有填词的纯音乐')
+    || compact.includes('暂无歌词')
+    || compact === '纯音乐'
+    || compact === 'instrumental';
+}
+
+function timedLyricRows(value) {
+  const rows = [];
+  String(value || '').split(/\r?\n/).forEach(line => {
+    const matches = [...String(line).matchAll(/\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g)];
+    if (!matches.length) return;
+    const text = line.replace(/\[[^\]]+\]/g, '').replace(/\(\d+,\d+,\d+\)/g, '').trim();
+    matches.forEach(match => {
+      const decimal = String(match[3] || '0').padEnd(3, '0').slice(0, 3);
+      const time = (Number(match[1]) || 0) * 60 + (Number(match[2]) || 0) + (Number(decimal) || 0) / 1000;
+      rows.push({ time, text });
+    });
+  });
+  return rows.sort((a, b) => a.time - b.time);
+}
+
+function isLyricCreditText(value) {
+  return /(?:歌词翻译|翻译由|天琴实验室|文曲大模型|作词|作曲|编曲|制作人|发行|出品|未经许可)/.test(String(value || ''));
+}
+
+function hasCjkText(value) {
+  return /[\u3400-\u9fff]/.test(String(value || ''));
+}
+
+function hasLatinText(value) {
+  return /[A-Za-z]/.test(String(value || ''));
+}
+
+function isChineseOriginalLyric(value) {
+  const text = timedLyricRows(value)
+    .map(row => String(row && row.text || ''))
+    .filter(text => text && !isLyricCreditText(text))
+    .join('');
+  const cjk = (text.match(/[\u3400-\u9fff]/g) || []).length;
+  const latin = (text.match(/[A-Za-z]/g) || []).length;
+  const otherEastAsian = /[\u3040-\u30ff\uac00-\ud7af]/.test(text);
+  return cjk >= 16 && !otherEastAsian && latin <= Math.max(8, Math.floor(cjk * 0.18));
+}
+
+function lastTimedLyricTime(value) {
+  const rows = timedLyricRows(value).filter(row => row.text && !isLyricCreditText(row.text));
+  return rows.length ? rows[rows.length - 1].time : 0;
+}
+
+function translationTimingLooksBad(baseValue, translationValue) {
+  if (!baseValue || !translationValue) return false;
+  const baseLast = lastTimedLyricTime(baseValue);
+  const translationLast = lastTimedLyricTime(translationValue);
+  return baseLast > 30 && translationLast > baseLast + Math.max(18, baseLast * 0.18);
+}
+
+function formatLrcTime(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const rest = (safeSeconds - minutes * 60).toFixed(3).padStart(6, '0');
+  return `[${String(minutes).padStart(2, '0')}:${rest}]`;
+}
+
+function splitInlineTranslation(text) {
+  const raw = String(text || '').trim();
+  const firstCjk = raw.search(/[\u3400-\u9fff]/);
+  if (firstCjk <= 0) return null;
+  const original = raw.slice(0, firstCjk).trim();
+  const translation = raw.slice(firstCjk).trim();
+  if (!hasLatinText(original) || !hasCjkText(translation) || isLyricCreditText(translation)) return null;
+  return { original, translation };
+}
+
+function embeddedTranslationFromLyric(value) {
+  const rows = timedLyricRows(value);
+  if (!rows.length) return '';
+  const translated = [];
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    if (!row.text || isLyricCreditText(row.text)) continue;
+    const inline = splitInlineTranslation(row.text);
+    if (inline) {
+      translated.push(`${formatLrcTime(row.time)}${inline.translation}`);
+      continue;
+    }
+    if (!hasLatinText(row.text) || hasCjkText(row.text)) continue;
+    for (let nextIndex = index + 1; nextIndex < Math.min(rows.length, index + 4); nextIndex++) {
+      const next = rows[nextIndex];
+      const delta = next.time - row.time;
+      if (delta < -0.05 || delta > 2.6) break;
+      if (!next.text || isLyricCreditText(next.text)) continue;
+      const inlineNext = splitInlineTranslation(next.text);
+      const candidateText = inlineNext ? inlineNext.translation : next.text;
+      if (hasCjkText(candidateText) && !hasLatinText(candidateText)) {
+        translated.push(`${formatLrcTime(row.time)}${candidateText.trim()}`);
+        break;
+      }
+    }
+  }
+  return translated.length >= 3 ? translated.join('\n') : '';
+}
+
+async function fetchNeteaseLyricPayloadDirect(songId) {
+  const requestNeteaseLyric = async apiPath => {
+    const response = await fetch(`https://music.163.com${apiPath}?id=${encodeURIComponent(songId)}&lv=-1&kv=-1&tv=-1&yv=-1`, {
+      headers: { Referer: 'https://music.163.com/', 'User-Agent': UA },
+    });
+    return response.ok ? await response.json() : {};
+  };
+  const first = await requestNeteaseLyric('/api/song/lyric');
+  let result = {
+    lyric: first && first.lrc && first.lrc.lyric || '',
+    tlyric: first && first.tlyric && first.tlyric.lyric || '',
+    yrc: first && first.yrc && first.yrc.lyric || '',
+    noLyric: !!(first && (first.nolyric || first.uncollected)),
+  };
+  if (!result.lyric || !result.tlyric || !result.yrc) {
+    try {
+      const next = await requestNeteaseLyric('/api/song/lyric/v1');
+      result = {
+        lyric: result.lyric || next && next.lrc && next.lrc.lyric || '',
+        tlyric: result.tlyric || next && next.tlyric && next.tlyric.lyric || '',
+        yrc: result.yrc || next && next.yrc && next.yrc.lyric || '',
+        noLyric: !!(result.noLyric || next && (next.nolyric || next.uncollected)),
+      };
+    } catch (_e) {}
+  }
+  return result;
 }
 
 function mapPodcastRadio(r) {
@@ -4574,34 +5000,50 @@ const server = http.createServer(async (req, res) => {
       const cookieObj = kgCookieObj();
       const userid = cookieObj.userid || kgLoginInfo.userId || 0;
       const token = cookieObj.token || '';
-      const r = await kugouRequest({
-        url: '/v7/get_all_list',
-        method: 'POST',
-        data: {
-          userid: Number(userid),
-          token,
-          total_ver: 979,
-          type: 2,
-          page: 1,
-          pagesize: 60,
-        },
-        params: { plat: 1, userid: Number(userid), token },
-        encryptType: 'android',
-        cookie: cookieObj,
-        headers: { 'x-router': 'cloudlist.service.kugou.com' },
-      });
-      const data = (r && r.data && r.data.data) || {};
-      const list = (data.list || data.info || []).map(pl => ({
-        id: pl.global_collection_id || pl.listid || pl.id || pl.special_id || '',
-        listid: pl.listid || pl.special_id || '',  // 用户自己的歌单需要用 listid 获取歌曲
-        name: pl.name || pl.special_name || pl.listname || pl.specialname || '',
-        cover: (pl.imgurl || pl.pic || pl.cover || pl.img || pl.create_user_pic || '').replace('{size}', '400'),
-        trackCount: pl.count || pl.track_count || pl.song_count || pl.total || 0,
-        playCount: pl.play_count || pl.listencount || 0,
-        creator: pl.username || pl.list_create_username || '',
-        subscribed: true,
-        specialType: pl.type || 0,
-      }));
+      const list = [];
+      const seen = new Set();
+      const pageSize = 200;
+      for (let page = 1; ; page++) {
+        const r = await kugouRequest({
+          url: '/v7/get_all_list',
+          method: 'POST',
+          data: {
+            userid: Number(userid),
+            token,
+            total_ver: 979,
+            type: 2,
+            page,
+            pagesize: pageSize,
+          },
+          params: { plat: 1, userid: Number(userid), token },
+          encryptType: 'android',
+          cookie: cookieObj,
+          headers: { 'x-router': 'cloudlist.service.kugou.com' },
+        });
+        const data = (r && r.data && r.data.data) || {};
+        const pageList = data.list || data.info || [];
+        let added = 0;
+        pageList.forEach(pl => {
+          const mapped = {
+            id: pl.global_collection_id || pl.listid || pl.id || pl.special_id || '',
+            listid: pl.listid || pl.special_id || '',
+            name: pl.name || pl.special_name || pl.listname || pl.specialname || '',
+            cover: (pl.imgurl || pl.pic || pl.cover || pl.img || pl.create_user_pic || '').replace('{size}', '400'),
+            trackCount: pl.count || pl.track_count || pl.song_count || pl.total || 0,
+            playCount: pl.play_count || pl.listencount || 0,
+            creator: pl.username || pl.list_create_username || '',
+            subscribed: true,
+            specialType: pl.type || 0,
+          };
+          const key = String(mapped.id || mapped.listid || '');
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          list.push(mapped);
+          added++;
+        });
+        const total = Number(data.total || data.count || data.total_count || data.list_count) || 0;
+        if (pageList.length < pageSize || added === 0 || (total && list.length >= total)) break;
+      }
 
       // 始终从 /v3/get_list_info 获取真实封面（/v7/get_all_list 返回的是用户头像而非歌单封面）
       const allIds = list.filter(pl => pl.id).map(pl => pl.id);
@@ -4709,8 +5151,7 @@ const server = http.createServer(async (req, res) => {
       const id = url.searchParams.get('id') || '';
       const listid = url.searchParams.get('listid') || '';
       if (!id && !listid) { sendJSON(res, { provider: 'kugou', error: 'Missing playlist id', tracks: [] }, 400); return; }
-      const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1);
-      const pagesize = Math.max(10, Math.min(1000, parseInt(url.searchParams.get('pagesize') || '1000', 10) || 1000));
+      const pagesize = Math.max(100, Math.min(500, parseInt(url.searchParams.get('pagesize') || '500', 10) || 500));
       const cookieObj = kgCookieObj();
       const userid = Number(cookieObj.userid || kgLoginInfo.userId || 0);
       const token = cookieObj.token || '';
@@ -4718,42 +5159,53 @@ const server = http.createServer(async (req, res) => {
 
       let tracks = [];
       let errorMsg = '';
+      const seenTracks = new Set();
+      const addTracks = (items) => {
+        let added = 0;
+        (items || []).forEach(item => {
+          const song = mapKGSong(item);
+          const key = String(song.hash || song.id || song.name + '|' + song.artist || '');
+          if (!key || seenTracks.has(key)) return;
+          seenTracks.add(key);
+          tracks.push(song);
+          added++;
+        });
+        return added;
+      };
 
       // 用户自己的歌单：优先使用 /v4/get_list_all_file（需要 listid）
       if (useListid) {
         try {
-          const r = await kugouRequest({
-            url: '/v4/get_list_all_file', method: 'POST',
-            data: { listid: useListid, userid, area_code: 1, show_relate_goods: 0, pagesize, allplatform: 1, show_cover: 1, type: 0, token, page },
-            encryptType: 'android', cookie: cookieObj,
-            headers: { 'x-router': 'cloudlist.service.kugou.com' },
-          });
-          const data = (r && r.data && r.data.data) || {};
-          tracks = (data.info || data.list || data.songs || []).map(mapKGSong);
+          for (let ownPage = 1; ; ownPage++) {
+            const r = await kugouRequest({
+              url: '/v4/get_list_all_file', method: 'POST',
+              data: { listid: useListid, userid, area_code: 1, show_relate_goods: 0, pagesize, allplatform: 1, show_cover: 1, type: 0, token, page: ownPage },
+              encryptType: 'android', cookie: cookieObj,
+              headers: { 'x-router': 'cloudlist.service.kugou.com' },
+            });
+            const data = (r && r.data && r.data.data) || {};
+            const pageTracks = data.info || data.list || data.songs || [];
+            const added = addTracks(pageTracks);
+            const total = Number(data.count || data.total) || 0;
+            if (pageTracks.length < pagesize || added === 0 || (total && tracks.length >= total)) break;
+          }
         } catch (e) { errorMsg = e.message; }
       }
 
       // 回退：公开歌单用 global_collection_id（私有 API 失败或不可用时）
       if (!tracks.length && id) {
         try {
-          const r = await kugouRequest({
-            url: '/pubsongs/v2/get_other_list_file_nofilt', method: 'GET',
-            params: { global_collection_id: id, page, pagesize, area_code: 1, plat: 1, type: 1, mode: 1, personal_switch: 1, begin_idx: (page - 1) * pagesize, extend_fields: 'abtags,hot_cmt,popularization' },
-            encryptType: 'android', cookie: cookieObj,
-          });
-          const d2 = (r && r.data && r.data.data) || {};
-          tracks = (d2.info || d2.list || d2.songs || []).map(mapKGSong);
-          var fallbackTotal = d2.count || d2.total || tracks.length;
-          if (tracks.length < fallbackTotal && tracks.length >= 300 && pagesize >= 300) {
-            var fbPages = Math.ceil(fallbackTotal / 300);
-            for (var fbp = 2; fbp <= fbPages; fbp++) {
-              try {
-                var fbR = await kugouRequest({ url: '/pubsongs/v2/get_other_list_file_nofilt', method: 'GET', params: { global_collection_id: id, page: fbp, pagesize: 300, area_code: 1, plat: 1, type: 1, mode: 1, personal_switch: 1, begin_idx: (fbp - 1) * 300, extend_fields: 'abtags,hot_cmt,popularization' }, encryptType: 'android', cookie: cookieObj });
-                var fbData = (fbR && fbR.data && fbR.data.data) || {};
-                var fbTracks = (fbData.info || fbData.list || fbData.songs || []).map(mapKGSong);
-                tracks = tracks.concat(fbTracks);
-              } catch(e) { break; }
-            }
+          for (let fbPage = 1; ; fbPage++) {
+            const r = await kugouRequest({
+              url: '/pubsongs/v2/get_other_list_file_nofilt', method: 'GET',
+              params: { global_collection_id: id, page: fbPage, pagesize, area_code: 1, plat: 1, type: 1, mode: 1, personal_switch: 1, begin_idx: (fbPage - 1) * pagesize, extend_fields: 'abtags,hot_cmt,popularization' },
+              encryptType: 'android', cookie: cookieObj,
+            });
+            const data = (r && r.data && r.data.data) || {};
+            const pageTracks = data.info || data.list || data.songs || [];
+            const added = addTracks(pageTracks);
+            const total = Number(data.count || data.total) || 0;
+            if (pageTracks.length < pagesize || added === 0 || (total && tracks.length >= total)) break;
           }
         } catch (e) { errorMsg = errorMsg || e.message; }
       }
@@ -5238,18 +5690,34 @@ const server = http.createServer(async (req, res) => {
     try {
       const info = await getLoginInfo();
       if (!info.loggedIn || !info.userId) { sendJSON(res, { loggedIn: false, playlists: [] }); return; }
-      const limit = Math.max(12, Math.min(100, parseInt(url.searchParams.get('limit') || '60', 10) || 60));
-      const r = await user_playlist({ uid: info.userId, limit, cookie: userCookie, timestamp: Date.now() });
-      const list = ((r.body && r.body.playlist) || []).map(pl => ({
-        id: pl.id,
-        name: pl.name,
-        cover: pl.coverImgUrl || '',
-        trackCount: pl.trackCount || 0,
-        playCount: pl.playCount || 0,
-        creator: (pl.creator && pl.creator.nickname) || '',
-        subscribed: !!pl.subscribed,
-        specialType: pl.specialType || 0,
-      }));
+      const list = [];
+      const seen = new Set();
+      const pageSize = Math.max(100, parseInt(url.searchParams.get('limit') || '200', 10) || 200);
+      for (let offset = 0; ; offset += pageSize) {
+        const r = await user_playlist({ uid: info.userId, limit: pageSize, offset, cookie: userCookie, timestamp: Date.now() });
+        const pageList = (r.body && r.body.playlist) || [];
+        let added = 0;
+        pageList.forEach(pl => {
+          const mapped = {
+            id: pl.id,
+            name: pl.name,
+            cover: pl.coverImgUrl || '',
+            trackCount: pl.trackCount || 0,
+            playCount: pl.playCount || 0,
+            creator: (pl.creator && pl.creator.nickname) || '',
+            subscribed: !!pl.subscribed,
+            specialType: pl.specialType || 0,
+          };
+          const key = String(mapped.id || '');
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          list.push(mapped);
+          added++;
+        });
+        const more = r.body && r.body.more;
+        const total = Number(r.body && (r.body.total || r.body.playlistCount)) || 0;
+        if (pageList.length < pageSize || added === 0 || more === false || (total && list.length >= total)) break;
+      }
       sendJSON(res, { loggedIn: true, userId: info.userId, playlists: list });
     } catch (err) {
       console.error('[UserPlaylists]', err);
@@ -5408,10 +5876,32 @@ const server = http.createServer(async (req, res) => {
         body = r.body || body || {};
         source = 'lyric';
       }
+      let lyricText = (body.lrc && body.lrc.lyric) || '';
+      let transText = (body.tlyric && body.tlyric.lyric) || '';
+      let yrcText = (body.yrc && body.yrc.lyric) || '';
+      if (!lyricText || !transText || !yrcText) {
+        try {
+          const direct = await fetchNeteaseLyricPayloadDirect(id);
+          lyricText = lyricText || direct.lyric || '';
+          transText = transText || direct.tlyric || '';
+          yrcText = yrcText || direct.yrc || '';
+          if (direct.noLyric && !lyricText && !yrcText) {
+            sendJSON(res, { lyric: '', tlyric: '', yrc: '', source: source + '+direct', noLyric: true });
+            return;
+          }
+          if (direct.lyric || direct.tlyric || direct.yrc) source += '+direct';
+        } catch (directErr) {
+          console.warn('[LyricDirect]', directErr.message);
+        }
+      }
+      if (!transText) transText = embeddedTranslationFromLyric(lyricText || yrcText);
+      if (transText && (hasNoLyricMarkerText(transText) || translationTimingLooksBad(lyricText || yrcText, transText) || isChineseOriginalLyric(lyricText || yrcText))) {
+        transText = '';
+      }
       sendJSON(res, {
-        lyric: (body.lrc && body.lrc.lyric) || '',
-        tlyric: (body.tlyric && body.tlyric.lyric) || '',
-        yrc: (body.yrc && body.yrc.lyric) || '',
+        lyric: lyricText,
+        tlyric: transText,
+        yrc: yrcText,
         source,
       });
     } catch (err) {
@@ -5502,16 +5992,63 @@ const server = http.createServer(async (req, res) => {
 
       let playlistMeta = { id, name: '', cover: '', trackCount: 0 };
       let rawTracks = [];
+      let fallbackTracks = [];
+      let fullTrackIds = [];
+
+      if (typeof playlist_detail === 'function') {
+        try {
+          const detail = await playlist_detail({ id, s: 0, cookie: userCookie, timestamp: Date.now() });
+          const pl = (detail.body && detail.body.playlist) || {};
+          playlistMeta = { id: pl.id || id, name: pl.name || '', cover: pl.coverImgUrl || '', trackCount: pl.trackCount || 0 };
+          fallbackTracks = pl.tracks || [];
+          fullTrackIds = (pl.trackIds || []).map(t => t && (t.id || t.resourceId || t.songId || t)).filter(Boolean);
+        } catch (err) {
+          console.warn('[PlaylistTracks] playlist_detail meta failed:', err.message);
+        }
+      }
 
       // 新版本 NeteaseCloudMusicApi 通常提供 playlist_track_all；旧版本退回 playlist_detail。
       if (typeof playlist_track_all === 'function') {
         try {
-          const all = await playlist_track_all({ id, limit: 500, offset: 0, cookie: userCookie, timestamp: Date.now() });
-          rawTracks = (all.body && (all.body.songs || all.body.tracks)) || [];
+          const pageSize = 500;
+          const seenTracks = new Set();
+          for (let offset = 0; ; offset += pageSize) {
+            const all = await playlist_track_all({ id, limit: pageSize, offset, cookie: userCookie, timestamp: Date.now() });
+            const pageTracks = (all.body && (all.body.songs || all.body.tracks)) || [];
+            if (!pageTracks.length) break;
+            let added = 0;
+            for (const track of pageTracks) {
+              const key = String(track.id || track.resourceId || track.songId || track.name || '') + ':' + String(track.dt || track.duration || '');
+              if (key === ':' || seenTracks.has(key)) continue;
+              seenTracks.add(key);
+              rawTracks.push(track);
+              added++;
+            }
+            if (pageTracks.length < pageSize || added === 0) break;
+          }
         } catch (err) {
           console.warn('[PlaylistTracks] playlist_track_all failed, fallback to detail:', err.message);
         }
       }
+
+      if (fullTrackIds.length > rawTracks.length && typeof song_detail === 'function') {
+        try {
+          const detailTracks = [];
+          const batchSize = 500;
+          for (let i = 0; i < fullTrackIds.length; i += batchSize) {
+            const ids = fullTrackIds.slice(i, i + batchSize).join(',');
+            if (!ids) continue;
+            const detail = await song_detail({ ids, cookie: userCookie, timestamp: Date.now() });
+            const songs = (detail.body && detail.body.songs) || [];
+            detailTracks.push(...songs);
+          }
+          if (detailTracks.length > rawTracks.length) rawTracks = detailTracks;
+        } catch (err) {
+          console.warn('[PlaylistTracks] song_detail full-track fetch failed:', err.message);
+        }
+      }
+
+      if (!rawTracks.length && fallbackTracks.length) rawTracks = fallbackTracks;
 
       if (!rawTracks.length && typeof playlist_detail === 'function') {
         const detail = await playlist_detail({ id, s: 0, cookie: userCookie, timestamp: Date.now() });
@@ -5731,6 +6268,56 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ---------- 封面代理 (带 CORS 头, 给 canvas 提取像素用) ----------
+  if (pn === '/api/wallpaper/list') {
+    try {
+      const wallpapers = scanWallpaperEngineLibrary();
+      sendJSON(res, { ok: true, wallpapers, count: wallpapers.length });
+    } catch (err) {
+      console.error('[WallpaperList]', err);
+      sendJSON(res, { ok: false, wallpapers: [], count: 0, error: err.message || 'WALLPAPER_SCAN_FAILED' }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/wallpaper/media') {
+    if (!wallpaperMediaIndex.size) scanWallpaperEngineLibrary();
+    const id = String(url.searchParams.get('id') || '');
+    const kind = url.searchParams.get('kind') === 'media' ? 'media' : 'preview';
+    const target = wallpaperMediaIndex.get(id + ':' + kind);
+    if (!target) {
+      res.writeHead(404);
+      res.end('Not found');
+      return;
+    }
+    try {
+      const stat = fs.statSync(target);
+      let start = 0;
+      let end = stat.size - 1;
+      let status = 200;
+      const match = /^bytes=(\d*)-(\d*)$/i.exec(req.headers.range || '');
+      if (match) {
+        start = match[1] ? Math.max(0, Number(match[1])) : 0;
+        end = match[2] ? Math.min(end, Number(match[2])) : end;
+        status = 206;
+      }
+      const headers = {
+        'Content-Type': localContentTypeForPath(target),
+        'Content-Length': String(end - start + 1),
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'private, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
+      };
+      if (status === 206) headers['Content-Range'] = `bytes ${start}-${end}/${stat.size}`;
+      res.writeHead(status, headers);
+      fs.createReadStream(target, { start, end }).pipe(res);
+    } catch (err) {
+      console.error('[WallpaperMedia]', err);
+      res.writeHead(500);
+      res.end('Wallpaper read failed');
+    }
+    return;
+  }
+
   if (pn === '/api/cover') {
     try {
       const coverUrl = url.searchParams.get('url');

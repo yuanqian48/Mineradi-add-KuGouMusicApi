@@ -262,9 +262,22 @@ function getSenderWindow(event) {
 
 function focusMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return false;
+  try { mainWindow.setSkipTaskbar(false); } catch (e) {}
   if (mainWindow.isMinimized()) mainWindow.restore();
   if (!mainWindow.isVisible()) mainWindow.show();
+  try { mainWindow.moveTop(); } catch (e) {}
   mainWindow.focus();
+  if (process.platform === 'win32') {
+    try { app.focus({ steal: true }); } catch (e) {}
+    setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isFocused()) return;
+      try {
+        mainWindow.setAlwaysOnTop(true, 'screen-saver');
+        mainWindow.focus();
+        mainWindow.setAlwaysOnTop(false);
+      } catch (e) {}
+    }, 80);
+  }
   sendWindowState(mainWindow);
   return true;
 }
@@ -1987,7 +2000,7 @@ async function createWindow() {
   var trayIcon = nativeImage.createFromPath(APP_ICON_ICO).resize({ width: 16, height: 16 });
   var tray = new Tray(trayIcon);
   var contextMenu = Menu.buildFromTemplate([
-    { label: '显示 Mineradio', click: function(){ mainWindow.show(); mainWindow.focus(); } },
+    { label: '显示 Mineradio', click: function(){ focusMainWindow(); } },
     { label: '暂停/播放', click: function(){ mainWindow.webContents.send('mineradio-global-hotkey', { action: 'playPause' }); } },
     { label: '下一首', click: function(){ mainWindow.webContents.send('mineradio-global-hotkey', { action: 'next' }); } },
     { label: '上一首', click: function(){ mainWindow.webContents.send('mineradio-global-hotkey', { action: 'prev' }); } },
@@ -1996,12 +2009,7 @@ async function createWindow() {
   ]);
   tray.setToolTip('Mineradio');
   tray.setContextMenu(contextMenu);
-  tray.on('click', function(){ mainWindow.show(); mainWindow.focus(); });
-  // 最小化到托盘
-  mainWindow.on('minimize', function(event){
-    event.preventDefault();
-    mainWindow.hide();
-  });
+  tray.on('click', function(){ focusMainWindow(); });
   // 渲染进程关闭回调
   ipcMain.handle('close-dialog-action', function(_event, action){
     if (action === 'tray') { mainWindow.hide(); }
