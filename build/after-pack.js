@@ -40,6 +40,23 @@ function resolveRcedit(projectDir) {
   return hit;
 }
 
+function verifyRuntimeDependencies(appOutDir) {
+  var appDir = path.join(appOutDir, 'resources', 'app');
+  var requiredModules = [
+    'axios',
+    'big-integer',
+    'crypto-js',
+    'node-forge',
+    'pako'
+  ];
+  var missing = requiredModules.filter(function(moduleName) {
+    return !fs.existsSync(path.join(appDir, 'node_modules', moduleName, 'package.json'));
+  });
+  if (missing.length) {
+    throw new Error('Mineradio package is missing runtime dependencies: ' + missing.join(', '));
+  }
+}
+
 module.exports = async function afterPack(context) {
   if (context.electronPlatformName !== 'win32') return;
 
@@ -50,6 +67,7 @@ module.exports = async function afterPack(context) {
 
   if (!fs.existsSync(exePath)) throw new Error(`Mineradio executable was not found: ${exePath}`);
   if (!fs.existsSync(iconPath)) throw new Error(`Mineradio icon was not found: ${iconPath}`);
+  verifyRuntimeDependencies(context.appOutDir);
 
   const version = context.packager.appInfo.version;
   console.log(`  • injecting Mineradio resources  rcedit=${rceditPath}`);
