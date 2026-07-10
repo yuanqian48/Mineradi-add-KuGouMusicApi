@@ -1,7 +1,7 @@
 {
   "name": "mineradio",
   "productName": "Mineradio",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "沉浸式音乐播放器，融合天气电台、歌词舞台、粒子视觉和 3D 歌单架。",
   "author": "Mineradio",
   "main": "desktop/main.js",
@@ -30,6 +30,11 @@
       "dj-analyzer.js",
       "kugou-core.js",
       "package.json",
+      "node_modules/pako/**/*",
+      "node_modules/axios/**/*",
+      "node_modules/crypto-js/**/*",
+      "node_modules/node-forge/**/*",
+      "node_modules/big-integer/**/*",
       "!public/index.*.html",
       "public/index.html"
     ],
