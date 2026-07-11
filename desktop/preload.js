@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('desktopWindow', {
   isDesktop: true,
+  getGeolocation: () => ipcRenderer.invoke('desktop-get-location'),
   minimize: () => ipcRenderer.invoke('desktop-window-minimize'),
   toggleMaximize: () => ipcRenderer.invoke('desktop-window-toggle-maximize'),
   toggleFullscreen: () => ipcRenderer.invoke('desktop-window-toggle-fullscreen'),
@@ -58,6 +59,12 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   },
   // 关闭弹窗
   closeDialogAction: (action) => ipcRenderer.invoke('close-dialog-action', action),
+  onExitTransparentMode: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = () => callback();
+    ipcRenderer.on('mineradio-exit-transparent-mode', listener);
+    return () => ipcRenderer.removeListener('mineradio-exit-transparent-mode', listener);
+  },
 });
 
 window.addEventListener('DOMContentLoaded', () => {

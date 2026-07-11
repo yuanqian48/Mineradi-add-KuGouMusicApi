@@ -1131,6 +1131,51 @@ ipcMain.handle('desktop-window-get-state', (event) => {
   return getWindowState(getSenderWindow(event));
 });
 
+// ---------- 桌面端地理定位（IP + 坐标） ----------
+ipcMain.handle('desktop-get-location', async () => {
+  // 优先用 ip-api.com 获取精确坐标（免费、无需 key）
+  try {
+    const resp = await fetch('http://ip-api.com/json/?fields=status,lat,lon,city,regionName,country,timezone');
+    if (!resp.ok) throw new Error('ip-api request failed');
+    const data = await resp.json();
+    if (data.status === 'success' && Number.isFinite(data.lat) && Number.isFinite(data.lon)) {
+      return {
+        ok: true,
+        latitude: data.lat,
+        longitude: data.lon,
+        city: data.city || '',
+        region: data.regionName || '',
+        country: data.country || '',
+        timezone: data.timezone || 'auto',
+      };
+    }
+  } catch (e) {
+    console.warn('[desktop-get-location] ip-api failed:', e.message);
+  }
+  // 回退：用本地服务 IP 定位
+  try {
+    const port = mainServerPort;
+    if (port) {
+      const resp2 = await fetch(`http://127.0.0.1:${port}/api/weather/ip-location?t=${Date.now()}`);
+      const data2 = await resp2.json();
+      if (data2.ok && data2.location) {
+        return {
+          ok: true,
+          latitude: data2.location.latitude,
+          longitude: data2.location.longitude,
+          city: data2.location.city || '',
+          region: data2.location.region || data2.location.admin1 || '',
+          country: data2.location.country || '',
+          timezone: data2.location.timezone || 'auto',
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('[desktop-get-location] ip fallback failed:', e.message);
+  }
+  return { ok: false };
+});
+
 ipcMain.handle('desktop-window-close', (event) => {
   var win = getSenderWindow(event);
   console.log('[close-dialog] desktop-window-close called, win=', !!win, 'isQuitting=', app.isQuitting);
@@ -2000,7 +2045,7 @@ async function createWindow() {
   var trayIcon = nativeImage.createFromPath(APP_ICON_ICO).resize({ width: 16, height: 16 });
   var tray = new Tray(trayIcon);
   var contextMenu = Menu.buildFromTemplate([
-    { label: '显示 Mineradio', click: function(){ focusMainWindow(); } },
+    { label: '显示界面', click: function(){ if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('mineradio-exit-transparent-mode'); focusMainWindow(); } },
     { label: '暂停/播放', click: function(){ mainWindow.webContents.send('mineradio-global-hotkey', { action: 'playPause' }); } },
     { label: '下一首', click: function(){ mainWindow.webContents.send('mineradio-global-hotkey', { action: 'next' }); } },
     { label: '上一首', click: function(){ mainWindow.webContents.send('mineradio-global-hotkey', { action: 'prev' }); } },
