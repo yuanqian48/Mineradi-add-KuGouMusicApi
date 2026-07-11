@@ -266,6 +266,18 @@ body.home-wallpaper-preview #canvas-container{filter:none}
 .home-hero::after{content:'';position:absolute;left:28px;right:28px;bottom:22px;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--home-accent) 0%,transparent),color-mix(in srgb,var(--home-accent) 52%,transparent),rgba(36,66,255,.24),rgba(248,244,238,.18),color-mix(in srgb,var(--home-accent) 0%,transparent));opacity:.82;pointer-events:none}
 .home-hero-inner{position:relative;z-index:2;height:100%;display:grid;grid-template-columns:minmax(0,1.16fr) minmax(150px,.64fr);grid-template-rows:auto auto auto auto minmax(150px,1fr);column-gap:18px}
 .home-hero-inner.home-construction-inner{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:18px;padding:4px 2px;min-height:100%}
+.home-hero-wallpaper{position:absolute;inset:0;border-radius:28px;overflow:hidden;z-index:0;pointer-events:none;display:none}
+.home-hero-wallpaper.visible{display:block}
+.home-hero-wallpaper img,.home-hero-wallpaper video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.home-hero-wallpaper::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25) 0%,rgba(0,0,0,.45) 100%);pointer-events:none}
+.home-hero-wallpaper-btn{position:absolute;top:12px;right:12px;z-index:10;width:32px;height:32px;border:none;border-radius:50%;background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;transition:background .2s,opacity .2s;opacity:0;pointer-events:auto;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#home-hero-card:hover .home-hero-wallpaper-btn{opacity:1}
+.home-hero-wallpaper-btn:hover{background:rgba(255,255,255,.18);color:rgba(255,255,255,.85)}
+.home-hero-menu{position:fixed;z-index:10000;min-width:160px;background:rgba(28,28,32,.92);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:4px 0;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.45);pointer-events:auto}
+.home-hero-menu-item{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:13px;color:rgba(255,255,255,.82);cursor:pointer;transition:background .15s}
+.home-hero-menu-item:hover{background:rgba(255,255,255,.08)}
+.home-hero-menu-item.danger{color:rgba(255,100,100,.85)}
+.home-hero-menu-sep{height:1px;background:rgba(255,255,255,.08);margin:4px 0}
 .home-kicker{grid-column:1;font-size:10px;font-weight:780;letter-spacing:.18em;color:color-mix(in srgb,var(--home-accent) 62%,rgba(255,255,255,.36));text-transform:uppercase;margin-bottom:14px}
 .home-title{grid-column:1;font-size:clamp(34px,4.6vw,58px);line-height:.98;font-weight:760;letter-spacing:0;color:rgba(255,255,255,.98);max-width:380px;text-shadow:0 10px 36px rgba(0,0,0,.26)}
 .home-title.home-construction-title{max-width:620px;font-size:clamp(32px,4.5vw,64px);line-height:1.08}
@@ -792,6 +804,41 @@ body.immersive-mode #time-display{display:flex;height:40px;align-items:center;ju
 @media (max-width: 620px){body.immersive-mode #bottom-bar{width:calc(100vw - 20px);padding:10px 12px 12px}body.immersive-mode #controls{gap:10px}body.immersive-mode .control-cluster{gap:10px;height:60px}body.immersive-mode .ctrl-btn{width:36px;height:36px}body.immersive-mode .ctrl-btn svg{width:20px;height:20px}body.immersive-mode #play-btn{width:58px;height:58px}body.immersive-mode #time-display{min-width:72px;font-size:10.5px}}
 @media (max-width: 420px){body.immersive-mode #time-display{display:none}}
 body.immersive-mode::after{content:'';position:fixed;left:0;right:0;bottom:0;height:118px;z-index:5;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.16))}
+
+/* ---------- 透明窗口模式 ---------- */
+body.transparent-mode{background:transparent!important}
+body.transparent-mode #empty-home{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #search-area{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #top-right{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #fx-fab{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #fx-fab-hide-btn{opacity:0!important;pointer-events:none!important}
+/* fx-panel 在透明模式下保留原有自动隐藏逻辑 */
+body.transparent-mode #bottom-handle{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #hint{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #trial-banner{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #upload-tip{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #drop-overlay{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #toast{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #source-fallback-notice{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #mini-queue-popover{opacity:0!important;pointer-events:none!important}
+body.transparent-mode .modal-mask{opacity:0!important;visibility:hidden!important;pointer-events:none!important;display:none!important}
+body.transparent-mode #desktop-titlebar{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #thumb-wrap{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #ai-depth-chip{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #beat-chip{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #gesture-hud{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #hand-canvas{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #idle-guide-canvas{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #login-guide-canvas{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #splash{display:none!important}
+body.transparent-mode #comment-panel{display:none!important}
+body.transparent-mode #bottom-bar{opacity:0!important;pointer-events:none!important;transform:translateX(-50%) translateY(96px)!important}
+body.transparent-mode #playlist-panel{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #custom-bg{opacity:0!important;pointer-events:none!important}
+body.transparent-mode #album-bg{opacity:0!important}
+body.transparent-mode #desktop-window-shell{background:transparent!important;box-shadow:none!important;border-radius:0!important;clip-path:none!important}
+body.transparent-mode #stage-lyrics{display:block!important}
+body.transparent-mode #trans-btn{color:#00f5d4;text-shadow:0 0 12px rgba(0,245,212,.4)}
 
 /* ---------- 试听提醒 ---------- */
 #trial-banner{position:fixed;z-index:8;top:80px;left:50%;transform:translateX(-50%) translateY(-10px);background:rgba(244,210,138,0.11);border:1px solid rgba(244,210,138,0.40);color:var(--champagne);padding:10px 18px 10px 14px;border-radius:12px;font-size:12px;letter-spacing:.3px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;align-items:center;gap:10px;opacity:0;pointer-events:none;transition:opacity .5s,transform .5s;max-width:90vw}
@@ -1965,7 +2012,9 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 <!-- 空场 Home -->
 <section id="empty-home" aria-label="Mineradio home">
   <div class="empty-home-shell">
-    <div class="home-hero">
+    <div class="home-hero" id="home-hero-card">
+      <div class="home-hero-wallpaper" id="home-hero-wallpaper"></div>
+      <button class="home-hero-wallpaper-btn" id="home-hero-wallpaper-btn" type="button" title="设置卡片壁纸" onclick="showHomeHeroWallpaperMenuFromBtn(event)">✎</button>
       <div class="home-hero-inner home-construction-inner">
         <div class="home-title" id="home-weather-tip" style="font-size:15px;color:rgba(255,255,255,.6);margin-bottom:4px;margin-top:-24px"></div>
         <div class="home-title" id="home-weather-main" style="font-size:30px;font-weight:780"></div>
@@ -2452,12 +2501,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <div id="comment-list" style="font-size:12px;color:rgba(255,255,255,.7)"></div>
   <div id="comment-loading" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">加载中...</div>
 </div>
-<div id="multi-lyric-overlay" style="display:none;position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:50;max-width:260px;text-align:right;pointer-events:none">
-  <div id="multi-lyric-prev" style="font-size:12px;color:rgba(255,255,255,.25);line-height:1.8;transition:all .3s"></div>
-  <div id="multi-lyric-curr" style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin:8px 0;transition:all .3s"></div>
-  <div id="multi-lyric-next" style="font-size:12px;color:rgba(255,255,255,.3);line-height:1.8;transition:all .3s"></div>
-</div>
-<style>#mlrc-btn.active,#speed-btn.active{color:#00f5d4;text-shadow:0 0 8px rgba(0,245,212,.4)}.eq-btn.active{background:rgba(0,245,212,.22)!important;border-color:rgba(0,245,212,.45)!important;color:#00f5d4!important}
+<style>#speed-btn.active{color:#00f5d4;text-shadow:0 0 8px rgba(0,245,212,.4)}.eq-btn.active{background:rgba(0,245,212,.22)!important;border-color:rgba(0,245,212,.45)!important;color:#00f5d4!important}
 /* 液态玻璃 */
 body.liquid-glass #playlist-panel,body.liquid-glass #fx-panel,body.liquid-glass #bottom-bar,body.liquid-glass #search-area,body.liquid-glass .modal-mask{
   background:rgba(18,18,26,0.45)!important;backdrop-filter:blur(28px) saturate(1.4)!important;-webkit-backdrop-filter:blur(28px) saturate(1.4)!important;
@@ -2518,7 +2562,7 @@ body.perf-mode .home-card::before,body.perf-mode .home-card::after{display:none}
       </div>
       <button id="heart-btn" class="ctrl-btn" onclick="toggleLikeCurrent()" title="红心喜欢"><svg class="heart-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.45c-.32 0-.62-.12-.86-.34l-1.23-1.12C5.54 16.03 2.25 13.05 2.25 8.9 2.25 5.48 4.88 2.9 8.28 2.9c1.7 0 3.35.72 4.52 1.96C13.97 3.62 15.62 2.9 17.32 2.9c3.4 0 6.03 2.58 6.03 6 0 4.15-3.29 7.13-7.66 11.09l-1.23 1.12c-.24.22-.54.34-.86.34z"/></svg></button>
       <button id="collect-btn" class="ctrl-btn" onclick="openCollectModalForCurrent()" title="收藏到歌单"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
-      <button id="mlrc-btn" class="ctrl-btn" onclick="toggleMultiLyric()" title="多行歌词"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="12" y2="16"/></svg></button>
+      <button id="trans-btn" class="ctrl-btn" onclick="toggleTransparentMode()" title="透明窗口 - 隐藏界面仅显示歌词、控制台和歌单"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg></button>
       <button id="cmt-btn" class="ctrl-btn" onclick="toggleCommentPanel()" title="歌曲评论"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
       <button id="speed-btn" class="ctrl-btn" onclick="toggleSpeedCard()" title="倍速/音高" style="font-size:11px;font-weight:700;width:auto;padding:0 8px">1x</button>
       <div id="speed-card" style="display:none;position:fixed;bottom:80px;right:20px;background:rgba(20,20,28,.94);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;z-index:60;min-width:180px;backdrop-filter:blur(16px)">
@@ -5716,6 +5760,7 @@ function beginParticlePointerDrag(e) {
   mouseDownAt.t = performance.now(); mouseDownAt.hadDrag = false;
 }
 renderer.domElement.addEventListener('mousedown', function(e){
+  if (emptyHomeActive) return;
   beginParticlePointerDrag(e);
 });
 window.addEventListener('mousedown', function(e){
@@ -5774,6 +5819,7 @@ renderer.domElement.addEventListener('mouseleave', function(){
   idleGuidePointerLeave();
 });
 renderer.domElement.addEventListener('wheel', function(e){
+  if (emptyHomeActive) return;
   if (isPointerOverUi(e)) return;
   e.preventDefault();
   markRenderInteraction('canvas-wheel', 900);
@@ -5794,6 +5840,7 @@ renderer.domElement.addEventListener('wheel', function(e){
 
 // 双击屏幕回正 — 不命中卡片时
 renderer.domElement.addEventListener('dblclick', function(e){
+  if (emptyHomeActive) return;
   if (isPointerOverUi(e)) return;
   if (freeCamera && freeCamera.locked) {
     resetFreeCameraToDefault();
@@ -13918,9 +13965,9 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       }
       shelfVisibility += (targetVis - shelfVisibility) * (targetVis > shelfVisibility ? 0.22 : 0.18);
       if (shelfVisibility < 0.01 && targetVis === 0) shelfVisibility = 0;
-      group.visible = appRevealed && (mode !== 'side' || shelfVisibility > 0) && (allItems.length > 0 || (contentList && contentList.isOpen()));
-      if (connectorParticles) connectorParticles.visible = group.visible && mode === 'stage';
-      if (floorMirror) floorMirror.visible = group.visible && mode === 'stage';
+      group.visible = !transparentModeEnabled && appRevealed && (mode !== 'side' || shelfVisibility > 0) && (allItems.length > 0 || (contentList && contentList.isOpen()));
+      if (connectorParticles) connectorParticles.visible = !transparentModeEnabled && group.visible && mode === 'stage';
+      if (floorMirror) floorMirror.visible = !transparentModeEnabled && group.visible && mode === 'stage';
       if (mode === 'side') {
         var passiveAlwaysGroup = shelfAlwaysVisible() && !shelfPinnedOpen && !(contentList && contentList.isOpen());
         var liftedCardActive = passiveAlwaysGroup && cards.some(function(c){ return c.selected || (c.floatMix || 0) > 0.025; });
@@ -15080,6 +15127,7 @@ function isShelfPlaylistPlayHit(hit) {
   return hit.uv.x >= 0.49 && hit.uv.x <= 0.72 && hit.uv.y >= 0.13 && hit.uv.y <= 0.42;
 }
 renderer.domElement.addEventListener('click', function(e){
+  if (emptyHomeActive) return;
   if (!shelfManager || shelfManager.getMode() === 'off') return;
   if (document.body.classList.contains('splash-active')) return;
   if (isPointerOverUi(e)) return;
@@ -15152,6 +15200,7 @@ renderer.domElement.addEventListener('click', function(e){
 });
 
 renderer.domElement.addEventListener('contextmenu', function(e){
+  if (emptyHomeActive) return;
   if (document.body.classList.contains('splash-active')) return;
   if (isPointerOverUi(e)) return;
   e.preventDefault();
@@ -15187,6 +15236,7 @@ renderer.domElement.addEventListener('contextmenu', function(e){
 //   shift + wheel: 强制滚卡片
 var wheelOverShelf = false;
 renderer.domElement.addEventListener('wheel', function(e){
+  if (emptyHomeActive) return;
   if (isPointerOverUi(e)) return;
   if (!shelfManager || shelfManager.getMode() === 'off') return;
   markRenderInteraction('shelf-wheel', 900);
@@ -16074,8 +16124,54 @@ function locateWeatherRadio() {
       showToast('定位不可用，可以手动换城市');
     });
   }
-  // 优先使用浏览器 GPS 精确定位，失败后回退到 IP 定位
-  if (navigator && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
+  // 优先使用桌面端 IPC 定位（Electron 环境），再浏览器 GPS，最后 IP 回退
+  function useDesktopLocation() {
+    if (locationSettled) return;
+    if (!(window.desktopWindow && typeof window.desktopWindow.getGeolocation === 'function')) return false;
+    window.desktopWindow.getGeolocation().then(function(data) {
+      if (locationSettled) return;
+      if (!data || !data.ok || !isFinite(Number(data.latitude)) || !isFinite(Number(data.longitude))) {
+        // 桌面定位失败，尝试浏览器 GPS
+        useBrowserGpsOrIp();
+        return;
+      }
+      var lat = data.latitude, lon = data.longitude;
+      apiJson('/api/location?lat=' + lat + '&lon=' + lon + '&t=' + Date.now()).then(function(resp) {
+        var loc = resp && resp.location;
+        if (!loc || !isFinite(Number(loc.latitude)) || !isFinite(Number(loc.longitude))) throw new Error('GPS_LOCATION_FAILED');
+        if (locationSettled) return;
+        locationSettled = true;
+        var displayCity = loc.district ? (loc.city + ' ' + loc.district) : (loc.city || data.city || '当前位置');
+        homeWeatherRadioState.city = displayCity;
+        localStorage.setItem(HOME_WEATHER_CITY_KEY, displayCity);
+        renderHomeDiscover();
+        showToast('已定位到 ' + displayCity);
+        apiJson('/api/weather?lat=' + lat + '&lon=' + lon + '&t=' + Date.now()).then(function(wx) {
+          if (wx && wx.ok && wx.weather) { homeWeatherRadioState.msnWeather = wx.weather; renderHomeDiscover(); }
+        }).catch(function() {});
+        loadHomeWeatherRadio(true, { lat: loc.latitude, lon: loc.longitude, city: loc.city || displayCity, timezone: loc.timezone || '' });
+      }).catch(function() {
+        // 逆地理编码失败，直接用桌面定位坐标
+        if (locationSettled) return;
+        locationSettled = true;
+        var displayCity = data.city || '当前位置';
+        homeWeatherRadioState.city = displayCity;
+        localStorage.setItem(HOME_WEATHER_CITY_KEY, displayCity);
+        renderHomeDiscover();
+        showToast('已定位到 ' + displayCity);
+        apiJson('/api/weather?lat=' + lat + '&lon=' + lon + '&t=' + Date.now()).then(function(wx) {
+          if (wx && wx.ok && wx.weather) { homeWeatherRadioState.msnWeather = wx.weather; renderHomeDiscover(); }
+        }).catch(function() {});
+        loadHomeWeatherRadio(true, { lat: lat, lon: lon, city: displayCity, timezone: data.timezone || '' });
+      });
+    }).catch(function() {
+      useBrowserGpsOrIp();
+    });
+    return true;
+  }
+  function useBrowserGpsOrIp() {
+    if (locationSettled) return;
+    if (navigator && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
     var gpsTimeout = setTimeout(function(){ if (!locationSettled) useIpFallback(); }, 5000);
     navigator.geolocation.getCurrentPosition(function(pos){
       clearTimeout(gpsTimeout);
@@ -16091,12 +16187,8 @@ function locateWeatherRadio() {
         localStorage.setItem(HOME_WEATHER_CITY_KEY, displayCity);
         renderHomeDiscover();
         showToast('已定位到 ' + displayCity);
-        // 获取 MSN 天气并更新卡片
         apiJson('/api/weather?lat=' + lat + '&lon=' + lon + '&t=' + Date.now()).then(function(wx){
-          if (wx && wx.ok && wx.weather) {
-            homeWeatherRadioState.msnWeather = wx.weather;
-            renderHomeDiscover();
-          }
+          if (wx && wx.ok && wx.weather) { homeWeatherRadioState.msnWeather = wx.weather; renderHomeDiscover(); }
         }).catch(function(){});
         loadHomeWeatherRadio(true, { lat: loc.latitude, lon: loc.longitude, city: loc.city || displayCity, timezone: loc.timezone || '' });
       }).catch(function(e){
@@ -16111,6 +16203,8 @@ function locateWeatherRadio() {
   } else {
     useIpFallback();
   }
+  }
+  if (!useDesktopLocation()) useBrowserGpsOrIp();
 }
 function changeWeatherCity() {
   var city = window.prompt('输入城市名', homeWeatherRadioState.city || '上海');
@@ -16497,7 +16591,8 @@ function isPointNearHomeContent(x, y) {
   var selectors = [
     '.home-card',
     '.home-tile',
-    '.home-chip'
+    '.home-chip',
+    '#home-hero-card'
   ];
   for (var i = 0; i < selectors.length; i++) {
     var nodes = document.querySelectorAll(selectors[i]);
@@ -16539,7 +16634,8 @@ function isHomeBlankDismissClick(e) {
     '.modal',
     '.track-detail-modal',
     '.cover-color-pop',
-    '.color-lab-pop'
+    '.color-lab-pop',
+    '#home-hero-card'
   ].join(',');
   if (target.closest(blockedSelector)) return false;
   var x = e.clientX;
@@ -17171,7 +17267,6 @@ function toggleLyricTranslation() {
   fx.lyricTranslation = fx.lyricTranslation === false;
   updateCustomLyricControls();
   refreshCurrentStageLyricText();
-  if (multiLyricEnabled) updateMultiLyricDisplay();
   pushDesktopLyricsState(true);
   saveLyricLayout();
   showToast(fx.lyricTranslation === false ? '歌词翻译已关闭' : '歌词翻译已开启');
@@ -19487,7 +19582,6 @@ async function fetchLyric(songOrId, token) {
         window._lyricTrans = nextTrans || null;
         applyPreferredLyricsForCurrent(true);
         refreshCurrentStageLyricText();
-        if (multiLyricEnabled) updateMultiLyricDisplay();
         pushDesktopLyricsState(true);
       }).catch(function(){ if (token === trackSwitchToken && !window._lyricTrans) window._lyricTrans = null; });
     }
@@ -22169,7 +22263,7 @@ function syncFxUniforms() {
   uniforms.uCoverRes.value = normalizeCoverResolution(fx.coverResolution);
   uniforms.uBgFade.value = fx.bgFade;
   uniforms.uBloomStrength.value = fx.bloom ? fx.bloomStrength : 0;
-  if (bloomParticles) bloomParticles.visible = fx.bloom && fx.bloomStrength > 0.01;
+  if (bloomParticles) bloomParticles.visible = !transparentModeEnabled && fx.bloom && fx.bloomStrength > 0.01;
   uniforms.uEdgeEnabled.value = fx.edge ? 1 : 0;
   if (uniforms.uTintColor) uniforms.uTintColor.value.set(normalizeHexColor(fx.visualTintColor || '#9db8cf'));
   if (uniforms.uTintStrength) uniforms.uTintStrength.value = fx.visualTintMode === 'custom' ? 0.42 : 0;
@@ -27864,10 +27958,10 @@ function animate() {
   // v7.2 旋转 = 头部+眼球追踪 + 鼠标/手势拖动 + 惯性
   tickGestureRotation(dt);
   var skullPresetActive = fx && fx.preset === SKULL_PRESET_INDEX;
-  particles.visible = !skullPresetActive;
-  if (bloomParticles) bloomParticles.visible = !skullPresetActive && fx.bloom && fx.bloomStrength > 0.01;
-  if (floatGroup) floatGroup.visible = !skullPresetActive;
-  if (backCoverGroup) backCoverGroup.visible = !skullPresetActive;
+  particles.visible = !transparentModeEnabled && !skullPresetActive;
+  if (bloomParticles) bloomParticles.visible = !transparentModeEnabled && !skullPresetActive && fx.bloom && fx.bloomStrength > 0.01;
+  if (floatGroup) floatGroup.visible = !transparentModeEnabled && !skullPresetActive;
+  if (backCoverGroup) backCoverGroup.visible = !transparentModeEnabled && !skullPresetActive;
   var targetRotY = orbit.centerLocked ? 0 : (headParallax.active ? headParallax.x * 0.5 : 0) + gestureRotation.y;
   var targetRotX = orbit.centerLocked ? 0 : (headParallax.active ? -headParallax.y * 0.35 : 0) + gestureRotation.x;
   particles.rotation.y += (targetRotY - particles.rotation.y) * 0.055;
@@ -28185,49 +28279,55 @@ function applyEQ(preset) {
   window._playbackSpeed = saved;
   setPlaybackSpeed(saved);
 })();
-// ========== 多行歌词 ==========
-var multiLyricEnabled = false;
-function getCurrentLyricLines() {
-  try {
-    var allLines = [];
-    var activeIdx = 0;
-    if (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.lineIdx != null) {
-      activeIdx = Math.max(0, (stageLyrics.lineIdx || 1) - 1);
-    }
-    if (typeof originalLyricsState !== 'undefined' && originalLyricsState && originalLyricsState.lines) {
-      allLines = originalLyricsState.lines.map(function(l){ return (l && l.text) || ''; });
-    }
-    var prev = [], next = [];
-    for (var i = Math.max(0, activeIdx - 2); i < activeIdx; i++) { if (allLines[i] && allLines[i].trim()) prev.push(allLines[i]); }
-    for (var j = activeIdx + 1; j <= Math.min(allLines.length - 1, activeIdx + 2); j++) { if (allLines[j] && allLines[j].trim()) next.push(allLines[j]); }
-    return { prev: prev, current: allLines[activeIdx] || '', next: next, currentIdx: activeIdx };
-  } catch(e) { return { prev: [], current: '', next: [], currentIdx: 0 }; }
+// ========== 透明窗口模式 ==========
+var transparentModeEnabled = false;
+function applyTransparentSceneVisibility() {
+  if (typeof particles !== 'undefined' && particles) particles.visible = !transparentModeEnabled && !(fx && fx.preset === SKULL_PRESET_INDEX);
+  if (typeof bloomParticles !== 'undefined' && bloomParticles) bloomParticles.visible = !transparentModeEnabled && !(fx && fx.preset === SKULL_PRESET_INDEX) && fx.bloom && fx.bloomStrength > 0.01;
+  if (typeof floatGroup !== 'undefined' && floatGroup) floatGroup.visible = !transparentModeEnabled && !(fx && fx.preset === SKULL_PRESET_INDEX);
+  if (typeof backCoverGroup !== 'undefined' && backCoverGroup) backCoverGroup.visible = !transparentModeEnabled && !(fx && fx.preset === SKULL_PRESET_INDEX);
+  if (typeof skullParticleGroup !== 'undefined' && skullParticleGroup) skullParticleGroup.visible = false;
+  if (typeof scene !== 'undefined' && scene && typeof THREE !== 'undefined') {
+    scene.traverse(function(child) {
+      if (child === (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.group)) return;
+      if (child === (typeof particles !== 'undefined' && particles)) return;
+      if (child === (typeof bloomParticles !== 'undefined' && bloomParticles)) return;
+      if (child === (typeof floatGroup !== 'undefined' && floatGroup)) return;
+      if (child === (typeof backCoverGroup !== 'undefined' && backCoverGroup)) return;
+      if (child === (typeof skullParticleGroup !== 'undefined' && skullParticleGroup)) return;
+    });
+  }
 }
-function toggleMultiLyric() {
-  multiLyricEnabled = !multiLyricEnabled;
-  var overlay = document.getElementById('multi-lyric-overlay');
-  var btn = document.getElementById('mlrc-btn');
-  if (overlay) overlay.style.display = multiLyricEnabled ? 'block' : 'none';
-  if (btn) btn.classList.toggle('active', multiLyricEnabled);
-  if (multiLyricEnabled) updateMultiLyricDisplay();
+function toggleTransparentMode() {
+  transparentModeEnabled = !transparentModeEnabled;
+  document.body.classList.toggle('transparent-mode', transparentModeEnabled);
+  var btn = document.getElementById('trans-btn');
+  if (btn) btn.classList.toggle('active', transparentModeEnabled);
+  if (transparentModeEnabled) {
+    if (typeof dismissHomePage === 'function') dismissHomePage({ reason: 'transparent-mode' });
+    applyTransparentSceneVisibility();
+  } else {
+    if (typeof particles !== 'undefined' && particles) particles.visible = !(fx && fx.preset === SKULL_PRESET_INDEX);
+    if (typeof bloomParticles !== 'undefined' && bloomParticles) bloomParticles.visible = !(fx && fx.preset === SKULL_PRESET_INDEX) && fx.bloom && fx.bloomStrength > 0.01;
+    if (typeof floatGroup !== 'undefined' && floatGroup) floatGroup.visible = !(fx && fx.preset === SKULL_PRESET_INDEX);
+    if (typeof backCoverGroup !== 'undefined' && backCoverGroup) backCoverGroup.visible = !(fx && fx.preset === SKULL_PRESET_INDEX);
+    if (typeof skullParticleGroup !== 'undefined' && skullParticleGroup) skullParticleGroup.visible = !!(fx && fx.preset === SKULL_PRESET_INDEX);
+  }
 }
-function updateMultiLyricDisplay() {
-  if (!multiLyricEnabled) return;
-  var overlay = document.getElementById('multi-lyric-overlay');
-  if (!overlay || overlay.style.display === 'none') return;
-  var prevEl = document.getElementById('multi-lyric-prev');
-  var currEl = document.getElementById('multi-lyric-curr');
-  var nextEl = document.getElementById('multi-lyric-next');
-  if (!currEl) return;
-  var lines = getCurrentLyricLines();
-  if (prevEl) prevEl.innerHTML = lines.prev.map(escHtml).join('<br>');
-  currEl.innerHTML = escHtml(lines.current) || '♪';
-  if (nextEl) nextEl.innerHTML = lines.next.map(escHtml).join('<br>');
-  var trans = lyricTranslationForIndex(lines.currentIdx);
-  if (trans) currEl.innerHTML += '<div style="font-size:13px;font-weight:400;color:rgba(255,255,255,.45);margin-top:4px">' + escHtml(trans) + '</div>';
-}
-// 定时刷新多行歌词
-setInterval(function(){ if (multiLyricEnabled) updateMultiLyricDisplay(); }, 400);
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && transparentModeEnabled) {
+    toggleTransparentMode();
+  }
+});
+// 托盘"显示界面"按钮：退出透明模式
+(function(){
+  var api = window.desktopWindow;
+  if (api && typeof api.onExitTransparentMode === 'function') {
+    api.onExitTransparentMode(function(){
+      if (transparentModeEnabled) toggleTransparentMode();
+    });
+  }
+})();
 // 自动获取天气（优先GPS精确定位，失败后IP回退）
 (function initWeatherCard(){
   function fetchWeatherByLatLon(lat, lon) {
@@ -28246,7 +28346,27 @@ setInterval(function(){ if (multiLyricEnabled) updateMultiLyricDisplay(); }, 400
       }
     }).catch(function(){});
   }
-  if (navigator && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
+  // 桌面端 IPC 定位优先
+  if (window.desktopWindow && typeof window.desktopWindow.getGeolocation === 'function') {
+    window.desktopWindow.getGeolocation().then(function(data) {
+      if (data && data.ok && isFinite(Number(data.latitude)) && isFinite(Number(data.longitude))) {
+        fetchWeatherByLatLon(data.latitude, data.longitude);
+      } else if (navigator && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
+        var gpsTimer = setTimeout(function(){ ipFallback(); }, 4000);
+        navigator.geolocation.getCurrentPosition(function(pos){
+          clearTimeout(gpsTimer);
+          fetchWeatherByLatLon(pos.coords.latitude, pos.coords.longitude);
+        }, function(){
+          clearTimeout(gpsTimer);
+          ipFallback();
+        }, { enableHighAccuracy: true, timeout: 4000, maximumAge: 600000 });
+      } else {
+        ipFallback();
+      }
+    }).catch(function() {
+      ipFallback();
+    });
+  } else if (navigator && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
     var gpsTimer = setTimeout(function(){ ipFallback(); }, 4000);
     navigator.geolocation.getCurrentPosition(function(pos){
       clearTimeout(gpsTimer);
@@ -28262,6 +28382,131 @@ setInterval(function(){ if (multiLyricEnabled) updateMultiLyricDisplay(); }, 400
   fetchHotComment();
   setInterval(fetchHotComment, 300000);
 })();
+
+// ========== Home Hero 自定义壁纸 ==========
+var HOME_HERO_WALLPAPER_KEY = 'mineradio-home-hero-wallpaper';
+var _homeHeroMenuCloseCleanup = null;
+function applyHomeHeroWallpaper() {
+  var container = document.getElementById('home-hero-wallpaper');
+  if (!container) return;
+  var raw = '';
+  try { raw = localStorage.getItem(HOME_HERO_WALLPAPER_KEY) || ''; } catch(e) {}
+  if (!raw) { container.classList.remove('visible'); container.innerHTML = ''; return; }
+  try {
+    var data = JSON.parse(raw);
+    container.innerHTML = '';
+    container.classList.add('visible');
+    if (data.type === 'video') {
+      var v = document.createElement('video');
+      v.src = data.url;
+      v.autoplay = true;
+      v.loop = true;
+      v.muted = true;
+      v.playsInline = true;
+      v.setAttribute('playsinline', '');
+      container.appendChild(v);
+    } else {
+      var img = document.createElement('img');
+      img.src = data.url;
+      img.alt = '';
+      container.appendChild(img);
+    }
+  } catch(e) {
+    container.classList.remove('visible');
+    container.innerHTML = '';
+  }
+}
+function setHomeHeroWallpaperFromFile(file) {
+  if (!file) return;
+  var isVideo = file.type && file.type.indexOf('video') === 0;
+  var maxSize = isVideo ? 20 * 1024 * 1024 : 8 * 1024 * 1024;
+  if (file.size > maxSize) {
+    showToast(isVideo ? '视频不能超过 20MB' : '图片不能超过 8MB');
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var url = e.target.result;
+    var data = { type: isVideo ? 'video' : 'image', url: url };
+    try { localStorage.setItem(HOME_HERO_WALLPAPER_KEY, JSON.stringify(data)); } catch(err) {
+      if (err && err.name === 'QuotaExceededError') {
+        showToast('存储空间不足，无法保存壁纸');
+        return;
+      }
+    }
+    applyHomeHeroWallpaper();
+    showToast('壁纸已设置');
+  };
+  reader.readAsDataURL(file);
+}
+function clearHomeHeroWallpaper() {
+  try { localStorage.removeItem(HOME_HERO_WALLPAPER_KEY); } catch(e) {}
+  var container = document.getElementById('home-hero-wallpaper');
+  if (container) { container.classList.remove('visible'); container.innerHTML = ''; }
+  showToast('壁纸已清除');
+}
+function showHomeHeroWallpaperMenu(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  closeHomeHeroWallpaperMenu();
+  if (_homeHeroMenuCloseCleanup) { _homeHeroMenuCloseCleanup(); _homeHeroMenuCloseCleanup = null; }
+  var menu = document.createElement('div');
+  menu.className = 'home-hero-menu';
+  menu.id = 'home-hero-wallpaper-menu';
+  var item1 = document.createElement('div');
+  item1.className = 'home-hero-menu-item';
+  item1.textContent = '设置壁纸（图片/视频）';
+  item1.addEventListener('click', function() {
+    closeHomeHeroWallpaperMenu();
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,video/mp4,video/webm';
+    input.style.display = 'none';
+    input.onchange = function() { if (input.files && input.files[0]) setHomeHeroWallpaperFromFile(input.files[0]); };
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(function() { if (input.parentNode) input.remove(); }, 1000);
+  });
+  menu.appendChild(item1);
+  var sep = document.createElement('div');
+  sep.className = 'home-hero-menu-sep';
+  menu.appendChild(sep);
+  var item2 = document.createElement('div');
+  item2.className = 'home-hero-menu-item danger';
+  item2.textContent = '清除壁纸';
+  item2.addEventListener('click', function() {
+    closeHomeHeroWallpaperMenu();
+    clearHomeHeroWallpaper();
+  });
+  menu.appendChild(item2);
+  var btn = document.getElementById('home-hero-wallpaper-btn');
+  if (btn) {
+    var rect = btn.getBoundingClientRect();
+    menu.style.left = (rect.left) + 'px';
+    menu.style.top = (rect.bottom + 6) + 'px';
+  }
+  document.body.appendChild(menu);
+  var closeMenu = function(ev) {
+    if (menu && !menu.contains(ev.target) && ev.target !== btn) {
+      closeHomeHeroWallpaperMenu();
+      document.removeEventListener('mousedown', closeMenu, true);
+      _homeHeroMenuCloseCleanup = null;
+    }
+  };
+  _homeHeroMenuCloseCleanup = function() {
+    document.removeEventListener('mousedown', closeMenu, true);
+  };
+  setTimeout(function() { document.addEventListener('mousedown', closeMenu, true); }, 10);
+}
+function showHomeHeroWallpaperMenuFromBtn(e) {
+  showHomeHeroWallpaperMenu(e);
+}
+function closeHomeHeroWallpaperMenu() {
+  if (_homeHeroMenuCloseCleanup) { _homeHeroMenuCloseCleanup(); _homeHeroMenuCloseCleanup = null; }
+  var m = document.getElementById('home-hero-wallpaper-menu');
+  if (m) m.remove();
+}
+// 启动时加载壁纸
+applyHomeHeroWallpaper();
 </script>
 </body>
 </html>
